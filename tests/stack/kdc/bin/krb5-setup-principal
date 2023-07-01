@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+PROGRAM="${BASH_SOURCE[0]:-$0}"
+
+usage() {
+    cat <<eof
+Sets up a new principal by adding it to the KDC and creating its keytab
+
+Usage:
+    $PROGRAM PRINCIPAL [ KEYTAB_NAME ]
+
+Args:
+    PRINCIPAL       Kerberos principal. If given with a realm, it will be
+                        checked if it matches \$KERBEROS_REALM
+    KEYTAB_NAME     name of the new keytab file in \$KEYTABS_PATH
+                        (default: a name derived from the principal)
+
+Environment variables:
+    KERBEROS_REALM          value of the Kerberos realm
+    KDC_MASTER_PASSWORD     KDC root password
+    KEYTABS_PATH            path to the directory containing the keytabs
+    USER_UID                UID of the user that owns the ticket cache
+                                (default: id -u)
+    USER_GID                GID of the user that owns the ticket cache
+                                (default: id -g)
+
+Keytab name derivation:
+    The keytab file name defaults to the lowercase principal identifier, with
+    the realm removed and slashes replaced by dots:
+        - HTTP@REALM -> http.keytab
+        - service/_HOST -> service.host.keytab
+eof
+}
+
+PRINCIPAL=
+KEYTAB_NAME=
+
+main() {
+    if [[ "$PRINCIPAL" =~ (.*?)@(.*)$ ]]; then
+        PRINCIPAL="${BASH_REMATCH[1]}"
+        realm="${BASH_REMATCH[2]}"
+        if [ "$realm" != "$KERBEROS_REALM" ]; then
+            echo >&2 "ERROR: unknown realm in '$PRINCIPAL', should be '@$KERBEROS_REALM'"
+            exit 1
+        fi
+    fi
+
+    if [ -z "$KEYTAB_NAME" ]; then
+        KEYTAB_NAME="${PRINCIPAL/\//.}"
+        KEYTAB_NAME="${KEYTAB_NAME,,}"
+    fi
+
+    principal="$PRINCIPAL@$KERBEROS_REALM"
+    keytab_path="$KEYTABS_PATH/$KEYTAB_NAME.keytab"
+
+    set -x
+
+    kadmin.local -w "$KDC_MASTER_PASSWORD" -q \
+        "add_principal -randkey $principal"
+
+    kadmin.local -w "$KDC_MASTER_PASSWORD" -q \
+        "ktadd -k $keytab_path -norandkey $principal"
+
+    chown "$USER_UID:$USER_GID" "$keytab_path"
+    chmod 640 "$keytab_path"
+}
+
+for arg; do
+    if [[ "$arg" =~ ^-h|--help$ ]]; then
+        usage
+        exit
+    fi
+done
+
+export USER_UID="${USER_UID:-$(id -u)}"
+export USER_GID="${USER_GID:-$(id -g)}"
+
+for env_name in KERBEROS_REALM KDC_MASTER_PASSWORD KEYTABS_PATH; do
+    if [ -z "${!env_name:-}" ]; then
+        echo >&2 "ERROR: no value for \$$env_name"
+        exit 1
+    fi
+done
+
+PRINCIPAL="${1:-}"
+KEYTAB_NAME="${2:-}"
+
+if [ -z "$PRINCIPAL" ]; then
+    echo >&2 "ERROR: no Kerberos principal specified"
+    exit 1
+fi
+
+main

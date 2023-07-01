@@ -1,0 +1,35 @@
+---
+version: "2.4"
+services:
+  kdc:
+    # Make sure this host does point to the machine Docker is running at
+    # Add the Docker machine IP to /etc/hosts if it doesn't
+    hostname: kdc.localhost
+    container_name: kdc
+    networks:
+      cluster:
+        aliases:
+          - kdc.localhost
+    build:
+      context: ./tests/stack/kdc
+    ports:
+      - "88:88/udp"
+      - "88:88/tcp"
+    environment:
+      - USER_UID
+      - USER_GID
+      - KERBEROS_INIT_PRINCIPALS=${DEV_KERBEROS_USER:-} ${SERVICE_KERBEROS_USER:-}
+      - KRB5_CONFIG=/run/kerberos/krb5.conf
+      - KDC_HOSTNAME=kdc.localhost
+      - KDC_DOMAIN=localhost
+      - KERBEROS_REALM=LOCALHOST
+      - KDC_MASTER_PASSWORD=password
+      - KEYTABS_PATH=/run/kerberos
+      - KRB5CCNAME=/run/kerberos/cache.tmp
+    mem_limit: 100m
+    volumes:
+      - ./tests/stack/kdc/run/:/run/kerberos/
+
+networks:
+  cluster:
+    name: localhost

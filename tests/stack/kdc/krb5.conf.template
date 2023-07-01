@@ -1,0 +1,24 @@
+[libdefaults]
+    default_realm = $KERBEROS_REALM
+    forwardable = true
+    rdns = false
+    dns_lookup_kdc = no
+    dns_lookup_realm = no
+    dns_canonicalize_hostname = false
+    default_ccache_name = /tmp/krb5cc_%{uid}
+    udp_preference_limit = 1
+
+[realms]
+$KERBEROS_REALM = {
+    kdc = $KDC_HOSTNAME
+    admin_server = $KDC_HOSTNAME
+}
+
+[domain_realm]
+    .$KDC_DOMAIN = $KERBEROS_REALM
+    $KDC_DOMAIN = $KERBEROS_REALM
+
+[logging]
+    kdc = FILE:/proc/self/fd/2
+    admin_server = FILE:/proc/self/fd/2
+    default = FILE:/proc/self/fd/2
