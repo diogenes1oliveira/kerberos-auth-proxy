@@ -2,21 +2,21 @@
 Module containing the built-in MITM filters
 '''
 
-from contextlib import closing
 import logging
 from re import Pattern
-from typing import Annotated, Callable, List, Optional, Set, Mapping
+from typing import Annotated, Awaitable, Callable, List, Optional, Set
 from urllib.parse import ParseResult, urlparse
 
+import aiohttp
 import gssapi
-from requests import Request, Session
+from multidict import CIMultiDict, MultiDict
 from requests_gssapi import HTTPSPNEGOAuth
 from requests_gssapi.exceptions import SPNEGOExchangeError
 from mitmproxy.http import Headers, HTTPFlow, Response
 
 
 Filter = Annotated[
-    Callable[[HTTPFlow], Optional['Filter']],
+    Callable[[HTTPFlow], Awaitable[Optional['Filter']]],
     'A function that accepts a flow, processes it and optionally returns the next filter to apply'
 ]
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ def check_spnego(unauthorized_codes: Set[int], next_filter: Filter) -> Filter:
         redirect_codes: recognized HTTP codes for access denial (e.g.: 401, 407)
     '''
     @debug_filter
-    def filter_check_spnego(flow: HTTPFlow) -> Optional[Filter]:
+    async def filter_check_spnego(flow: HTTPFlow) -> Optional[Filter]:
         www_authenticate = flow.response.headers.get(b'WWW-Authenticate') or ''
         if (
             flow.response.status_code in unauthorized_codes
@@ -63,7 +63,7 @@ def check_knox(
             convince some apps we're not a browser so it shouldn't just redirect to KNOX again.
     '''
     @debug_filter
-    def filter_check_knox(flow: HTTPFlow) -> Optional[Filter]:
+    async def filter_check_knox(flow: HTTPFlow) -> Optional[Filter]:
         if flow.response.status_code not in redirect_codes:
             logging.info('not KNOX, unknown redirect code %s', flow.response.status_code)
             return
@@ -98,74 +98,48 @@ def do_with_kerberos(
     This requires the flow.metadata[METADATA_KERBEROS_PRINCIPAL] to point to the principal full name
     (i.e., with the realm spec) and such principal to already be authenticated in the ticket cache
     '''
+    def _to_headers(headers: Headers) -> MultiDict:
+        return CIMultiDict()
+
     @debug_filter
-    def filter_do_with_kerberos(flow: HTTPFlow) -> Optional[Filter]:
+    async def filter_do_with_kerberos(flow: HTTPFlow) -> Optional[Filter]:
         principal = flow.metadata[METADATA_KERBEROS_PRINCIPAL]
+        name = gssapi.Name(principal, gssapi.NameType.kerberos_principal)
+        creds = gssapi.Credentials(name=name, usage="initiate")
 
-        requests_headers = {h: ', '.join(flow.request.headers.get_all(h) or []) for h in flow.request.headers}
+        gssapi_auth = HTTPSPNEGOAuth(
+            creds=creds,
+            opportunistic_auth=True,
+            target_name='HTTP',
+        )
+        try:
+            negotiate = gssapi_auth.generate_request_header(None, flow.request.host, True)
+            flow.request.headers[b'Authorization'] = negotiate
+        except SPNEGOExchangeError:
+            logger.exception('error while generating header')
+            return None
 
-        with closing(Session()) as session:
-            name = gssapi.Name(principal, gssapi.NameType.kerberos_principal)
-            creds = gssapi.Credentials(name=name, usage="initiate")
-
-            gssapi_auth = HTTPSPNEGOAuth(
-                creds=creds,
-                opportunistic_auth=True,
-                target_name='HTTP',
-            )
-            request = Request(
-                flow.request.method,
+        async with aiohttp.ClientSession() as session:
+            kwargs = dict(
+                method=flow.request.method,
                 url=flow.request.url,
+                headers=flow.request.headers,
                 data=flow.request.raw_content,
-                headers=requests_headers,
-                auth=gssapi_auth,
             )
-            try:
-                prepped = session.prepare_request(request)
-            except SPNEGOExchangeError:
-                logger.exception('error while preparing the Kerberized request')
-                return None
-            settings = session.merge_environment_settings(prepped.url, {}, None, None, None)
 
             logger.info(f'sending request with principal {principal}')
-            response = session.send(prepped, **settings)
+            async with session.request(**kwargs) as response:
+                flow.response = Response.make(
+                    status_code=response.status,
+                    headers=response.raw_headers,
+                    content=await response.content.read(),
+                )
+                flow.response.headers.pop('WWW-Authenticate', None)
 
-            # handle gzipped, chunked, etc... responses
-            data = response.content
-            if data:
-                response.headers['Content-Length'] = str(len(data))
-            else:
-                response.headers.pop('Content_Length', None)
-
-            response.headers.pop('Transfer-Encoding', None)
-            response.headers.pop('Content-Encoding', None)
-            response.headers.pop('WWW-Authenticate', None)
-
-            flow.response = Response.make(
-                status_code=response.status_code,
-                headers=Headers(**response.headers),
-                content=data,
-            )
         flow.metadata[METADATA_KERBEROS_WRAPPED] = True
         return next_filter
 
     return filter_do_with_kerberos
-
-
-def remap_hosts(host_mappings: Mapping[str, str]) -> Filter:
-    '''
-    Remaps the host in the original request
-
-    Args:
-        netloc_mappings: map of original host to the remapped one, including the port.
-    '''
-    def filter_remap_hosts(flow: HTTPFlow) -> None:
-        remapped = host_mappings[flow.request.host]
-        if remapped:
-            logger.info(f'remapped host {flow.request.host} to {remapped}')
-            flow.request.host = remapped
-
-    return filter_remap_hosts
 
 
 def match_hosts(host_regexps: List[Pattern], next_filter: Filter) -> Filter:
@@ -176,7 +150,7 @@ def match_hosts(host_regexps: List[Pattern], next_filter: Filter) -> Filter:
         host_regexps: list of regexp patterns to match the host against (including the port)
         next_filter: filter to apply if the host matches
     """
-    def filter_match_hosts(flow: HTTPFlow) -> Optional[Filter]:
+    async def filter_match_hosts(flow: HTTPFlow) -> Optional[Filter]:
         for host_regexp in host_regexps:
             if host_regexp.match(flow.request.host):
                 return next_filter
@@ -193,7 +167,7 @@ def kerberos_flow(
     Sets the kerberos.metadata[METADATA_KERBEROS_PRINCIPAL] based on the authentication
     '''
     @debug_filter
-    def filter_kerberos_flow(flow: HTTPFlow) -> Optional[Filter]:
+    async def filter_kerberos_flow(flow: HTTPFlow) -> Optional[Filter]:
         username, *_ = list(flow.metadata.get('proxyauth') or []) + ['']
         if not username:
             logger.info('no authenticated user, skipping Kerberos flow')
@@ -203,9 +177,9 @@ def kerberos_flow(
         flow.metadata[METADATA_KERBEROS_PRINCIPAL] = principal
         logger.info('enabling Kerberos flow with principal %s', principal)
 
-        filter = spnego_filter(flow) or knox_filter(flow)
+        filter = await spnego_filter(flow) or await knox_filter(flow)
         if filter:
-            return filter(flow)
+            return await filter(flow)
 
     return filter_kerberos_flow
 

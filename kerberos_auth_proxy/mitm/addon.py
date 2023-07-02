@@ -6,7 +6,6 @@ from urllib.parse import ParseResult, urlparse
 from typing import FrozenSet, List
 
 from mitmproxy.http import HTTPFlow, Response
-from mitmproxy.script import concurrent
 
 from kerberos_auth_proxy.mitm.filters import (
     check_knox,
@@ -33,12 +32,11 @@ KERBEROS_FILTER = kerberos_flow(
 
 
 class Addon:
-    @concurrent
-    def response(self, flow: HTTPFlow):
+    async def response(self, flow: HTTPFlow):
         '''
         Retries requests with recognized non-authorized responses using Kerberos/GSSAPI
         '''
-        KERBEROS_FILTER(flow)
+        await KERBEROS_FILTER(flow)
         if not flow.response:
             flow.response = Response.make(500, b'No data', {'Content-type': 'text/plain'})
             logging.error('filtering deleted the whole response')

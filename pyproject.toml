@@ -12,6 +12,7 @@ python = "^3.9"
 mitmproxy = "^9.0"
 requests-gssapi = "^1.2"
 flask = "^2.2"
+aiohttp = "^3.8"
 
 [tool.poetry.group.test.dependencies]
 pytest-cov = "^4.1"
@@ -19,6 +20,7 @@ pytest-mock = "^3.11"
 pytest = "^7.4"
 pytest-httpserver = "^1.0"
 flask-kerberos = "^1.0"
+pytest-asyncio = "^0.21"
 
 [tool.poetry.group.dev.dependencies]
 flake8 = "^6.0"

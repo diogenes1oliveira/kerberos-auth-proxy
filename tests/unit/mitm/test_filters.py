@@ -26,7 +26,7 @@ TEST_FILTER: Filter = lambda _flow: None
         (frozenset(), 401, {b'WWW-Authenticate': 'Negotiate'}, None),
     ],
 )
-def test_check_spnego(
+async def test_check_spnego(
     spnego_codes: Set[int],
     response_code: int,
     response_headers: Mapping[bytes, str],
@@ -36,7 +36,7 @@ def test_check_spnego(
     flow = HTTPFlow(None, None)
     flow.response = response
 
-    assert check_spnego(spnego_codes, TEST_FILTER)(flow) == expected_filter
+    assert await check_spnego(spnego_codes, TEST_FILTER)(flow) == expected_filter
 
 
 @pytest.mark.parametrize(
@@ -51,7 +51,7 @@ def test_check_spnego(
             {b'Location': "http://knox/some/stuff"}, None),
     ]
 )
-def test_check_knox(
+async def test_check_knox(
     urls: List[str],
     redirect_codes: Set[int],
     response_code: int,
@@ -63,10 +63,10 @@ def test_check_knox(
     flow.request = Request.make('GET', 'http://localhost')
     flow.response = response
 
-    assert check_knox(redirect_codes, urls, '', TEST_FILTER)(flow) == expected_filter
+    assert await check_knox(redirect_codes, urls, '', TEST_FILTER)(flow) == expected_filter
 
 
-def test_check_knox_overrides_user_agent():
+async def test_check_knox_overrides_user_agent():
     knox_url = 'http://knox:8000/'
     urls = [urlparse(knox_url)]
     code = 301
@@ -77,16 +77,16 @@ def test_check_knox_overrides_user_agent():
     flow.request = Request.make('GET', 'http://app.localhost')
     flow.response = Response.make(code, headers={b'Location': f'{knox_url}/stuff'})
 
-    filter(flow)
+    await filter(flow)
     assert flow.request.headers.get(b'User-Agent') == user_agent
 
 
-def test_do_with_kerberos(kerberosprincipal: str, kerberizedserver: str):
+async def test_do_with_kerberos(kerberosprincipal: str, kerberizedserver: str):
     flow = HTTPFlow(None, None)
     flow.request = Request.make('GET', kerberizedserver + "/private/")
     flow.metadata[METADATA_KERBEROS_PRINCIPAL] = kerberosprincipal
 
-    do_with_kerberos()(flow)
+    await do_with_kerberos()(flow)
 
     data = json.loads(flow.response.content)
 
