@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
 import logging
+import os
+import re
 import socket
 from threading import Thread
 import time
-from typing import Optional
+from typing import Callable, Optional
 
-from flask import Flask
+from flask import Flask, request
 
 from kerberos_auth_proxy.utils import no_warnings
 
@@ -17,7 +19,7 @@ import requests
 from werkzeug.serving import make_server
 
 
-def wait_for_url(get_url, max_tries=30, pause=0.1):
+def wait_for_url(get_url, max_tries=30, pause=0.1, on_retry: Optional[Callable[[Exception], None]] = None):
     '''
     Waits until the URL returns a non-error response
 
@@ -25,6 +27,7 @@ def wait_for_url(get_url, max_tries=30, pause=0.1):
         url: URL to send a GET request to
         max_tries: max number of attempts to try before giving up
         pause: time in seconds to wait between each retry
+        on_retry: function to call on errors
 
     Raises:
         IOError: URL not available after the retries have been exhausted
@@ -33,7 +36,8 @@ def wait_for_url(get_url, max_tries=30, pause=0.1):
         try:
             response = requests.get(get_url)
             response.raise_for_status()
-        except Exception:
+        except Exception as e:
+            on_retry and on_retry(e)
             time.sleep(pause)
         else:
             logging.info('request to %s succeeded after %d try(ies)', get_url, i + 1)
@@ -51,16 +55,20 @@ class KerberizedServer(Thread):
     - /ping -> returns "pong"
     '''
 
-    def __init__(self, hostname, port: Optional[int] = None):
+    def __init__(self, port: Optional[int] = None):
         '''
         Args:
-            hostname: Kerberos hostname presented to the client. The server socket always binds to 127.0.0.1,
-                but this argument must match the one sent in the URL and must contain the realm domain.
-                For instance, if the realm domain is .localhost, this hostname must match *.localhost,
-                can't be just 'localhost'
             port: port to bind the server to. Defaults to a random free TCP port
         '''
         super().__init__()
+
+        http_user = os.environ['HTTP_KERBEROS_USER']
+        os.environ['KRB5_KTNAME'] = os.environ['HTTP_KERBEROS_KEYTAB']
+
+        service, hostname, realm = re.split('[/@]', http_user)
+        if service != 'HTTP' or not hostname or not realm:
+            raise ValueError('Invalid value for HTTP_KERBEROS_USER')
+
         self.daemon = True
         self.hostname = hostname
 
@@ -75,6 +83,10 @@ class KerberizedServer(Thread):
 
         self.server = None
         self.app = Flask(__name__)
+
+        @self.app.before_request
+        def do_log():
+            logging.info("url: %s, headers: %s", request.url, request.headers)
 
         @self.app.route("/ping")
         def ping():
@@ -112,7 +124,7 @@ class KerberizedServer(Thread):
         Starts the server, waiting until it's ready to return
         '''
         self.start()
-        wait_for_url(self.url)
+        wait_for_url(f"{self.url}/ping")
 
     def close(self):
         '''
@@ -135,9 +147,8 @@ if __name__ == '__main__':
 
     args = dict(enumerate(sys.argv))
 
-    port = int(args.get(1) or '8080')
-    hostname = args.get(2) or 'test.localhost'
-    level = args.get(3) or 'INFO'
+    port = int(args.get(1) or '8081')
+    level = args.get(2) or 'INFO'
 
     dictConfig({
         'version': 1,
@@ -154,7 +165,7 @@ if __name__ == '__main__':
             'handlers': ['wsgi']
         }
     })
-    server = KerberizedServer(hostname, port)
+    server = KerberizedServer(port)
     server.serve()
 
     try:

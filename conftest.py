@@ -25,22 +25,22 @@ def restore_env():
 
 @pytest.fixture()
 def kerberizedserver() -> Generator[str, None, None]:
-    http_user = os.environ['HTTP_KERBEROS_USER']
-    http_keytab = os.environ['HTTP_KERBEROS_KEYTAB']
-
-    service, hostname, realm = re.split('[/@]', http_user)
-    if service != 'HTTP' or not hostname or not realm:
-        raise ValueError('Invalid value for HTTP_KERBEROS_USER')
+    _, hostname, _ = re.split('[/@]', os.environ.get('HTTP_KERBEROS_USER') or '')
+    if not hostname:
+        raise ValueError('No hostname in HTTP_KERBEROS_USER')
 
     port = _random_port()
     url = f'http://{hostname}:{port}'
 
-    process = subprocess.Popen(
-        args=[sys.executable, kerberizedserver_path, str(port), hostname, 'WARN'],
-        env={**os.environ, 'KRB5_KTNAME': http_keytab},
-    )
+    process = subprocess.Popen([
+        sys.executable, kerberizedserver_path, str(port), 'WARN'
+    ])
 
-    wait_for_url(f'{url}/ping')
+    def on_retry(_):
+        if process.poll() is not None:
+            raise Exception('process ended abruptly')
+
+    wait_for_url(f'{url}/ping', on_retry=on_retry)
 
     try:
         yield url
