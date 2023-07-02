@@ -17,10 +17,52 @@ import requests
 from werkzeug.serving import make_server
 
 
+def wait_for_url(get_url, max_tries=30, pause=0.1):
+    '''
+    Waits until the URL returns a non-error response
+
+    Args:
+        url: URL to send a GET request to
+        max_tries: max number of attempts to try before giving up
+        pause: time in seconds to wait between each retry
+
+    Raises:
+        IOError: URL not available after the retries have been exhausted
+    '''
+    for i in range(max_tries):
+        try:
+            response = requests.get(get_url)
+            response.raise_for_status()
+        except Exception:
+            time.sleep(pause)
+        else:
+            logging.info('request to %s succeeded after %d try(ies)', get_url, i + 1)
+            return
+
+    raise IOError(f'{get_url} still not available after {max_tries} tries')
+
+
 class KerberizedServer(Thread):
+    '''
+    Starts a simple test server with the routes:
+
+    - /public/** -> returns {"status": "public"}
+    - /private/** -> returns {"status": "private", "principal": "<PRINCIPAL>"} (requires SPNEGO)
+    - /ping -> returns "pong"
+    '''
+
     def __init__(self, hostname, port: Optional[int] = None):
+        '''
+        Args:
+            hostname: Kerberos hostname presented to the client. The server socket always binds to 127.0.0.1,
+                but this argument must match the one sent in the URL and must contain the realm domain.
+                For instance, if the realm domain is .localhost, this hostname must match *.localhost,
+                can't be just 'localhost'
+            port: port to bind the server to. Defaults to a random free TCP port
+        '''
         super().__init__()
         self.daemon = True
+        self.hostname = hostname
 
         if not port:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -31,7 +73,6 @@ class KerberizedServer(Thread):
             self.socket = None
             self.port = port
 
-        self.url = f"http://{hostname}:{self.port}"
         self.server = None
         self.app = Flask(__name__)
 
@@ -50,33 +91,33 @@ class KerberizedServer(Thread):
         def private(principal, path):
             return {"status": "private", "principal": principal}
 
-        init_kerberos(self.app, hostname=hostname)
+        init_kerberos(self.app, hostname=self.hostname)
 
     def run(self):
+        '''
+        threading internal method, don't call directly
+        '''
         self.server = make_server('127.0.0.1', self.port, self.app)
         with no_warnings(DeprecationWarning):
             self.ctx = self.app.app_context()
             self.ctx.push()
             self.server.serve_forever()
 
-    def wait_ready(self, url=None):
-        url = url or f'{self.url}/ping'
-
-        while True:
-            try:
-                response = requests.get(url)
-                if response.status_code == 200:
-                    logging.info('Server is ready at %s', url)
-                    break
-            except Exception:
-                pass
-            time.sleep(0.1)
+    @property
+    def url(self):
+        return f"http://{self.hostname}:{self.port}"
 
     def serve(self):
+        '''
+        Starts the server, waiting until it's ready to return
+        '''
         self.start()
-        self.wait_ready()
+        wait_for_url(self.url)
 
     def close(self):
+        '''
+        Stops the server and waits until it's dead
+        '''
         if self.socket:
             logging.info('Closing socket at :%d', self.port)
             self.socket.close()

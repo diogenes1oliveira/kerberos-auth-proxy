@@ -1,13 +1,17 @@
 from contextlib import closing
 import os
 import re
+import sys
 import socket
 import subprocess
 from typing import Generator
 
 import pytest
 
-from tests.kerberizedserver import KerberizedServer, __file__ as kerberizedserver_path
+from tests.kerberizedserver import (
+    __file__ as kerberizedserver_path,
+    wait_for_url
+)
 
 
 @pytest.fixture(autouse=True)
@@ -22,6 +26,7 @@ def restore_env():
 @pytest.fixture()
 def kerberizedserver() -> Generator[str, None, None]:
     http_user = os.environ['HTTP_KERBEROS_USER']
+    http_keytab = os.environ['HTTP_KERBEROS_KEYTAB']
 
     service, hostname, realm = re.split('[/@]', http_user)
     if service != 'HTTP' or not hostname or not realm:
@@ -31,11 +36,12 @@ def kerberizedserver() -> Generator[str, None, None]:
     url = f'http://{hostname}:{port}'
 
     process = subprocess.Popen(
-        args=[kerberizedserver_path, str(port), hostname, 'WARN'],
-        env={**os.environ, 'KRB5_KTNAME': os.environ['HTTP_KERBEROS_KEYTAB']},
+        args=[sys.executable, kerberizedserver_path, str(port), hostname, 'WARN'],
+        env={**os.environ, 'KRB5_KTNAME': http_keytab},
     )
 
-    KerberizedServer.wait_ready(None, f'{url}/ping')
+    wait_for_url(f'{url}/ping')
+
     try:
         yield url
     finally:

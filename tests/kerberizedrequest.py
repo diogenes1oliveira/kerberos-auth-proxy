@@ -8,7 +8,7 @@ import sys
 
 from mitmproxy.http import HTTPFlow, Request
 
-from kerberos_auth_proxy.mitm.filters import do_with_kerberos
+from kerberos_auth_proxy.mitm.filters import do_with_kerberos, METADATA_KERBEROS_PRINCIPAL
 
 URL, PRINCIPAL, KEYTAB = sys.argv[1:]
 
@@ -18,9 +18,9 @@ with tempfile.TemporaryDirectory() as tempdir:
 
     flow = HTTPFlow(None, None)
     flow.request = Request.make('GET', URL)
-    flow.metadata['kerberos_principal'] = PRINCIPAL
+    flow.metadata[METADATA_KERBEROS_PRINCIPAL] = PRINCIPAL
 
-    do_with_kerberos(flow)
+    do_with_kerberos()(flow)
 
     pprint({
         'status': flow.response.status_code,
