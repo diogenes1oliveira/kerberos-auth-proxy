@@ -9,6 +9,21 @@ packages = [{ include = "kerberos_auth_proxy" }]
 
 [tool.poetry.dependencies]
 python = "^3.9"
+mitmproxy = "^9.0"
+requests-gssapi = "^1.2"
+flask = "^2.2"
+
+[tool.poetry.group.test.dependencies]
+pytest-cov = "^4.1"
+pytest-mock = "^3.11"
+pytest = "^7.4"
+pytest-httpserver = "^1.0"
+flask-kerberos = "^1.0"
+
+[tool.poetry.group.dev.dependencies]
+flake8 = "^6.0"
+autopep8 = "^2.0"
+flask-kerberos = "^1.0"
 
 [build-system]
 requires = ["poetry-core"]

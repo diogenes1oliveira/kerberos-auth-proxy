@@ -16,7 +16,8 @@ dev/up: clean
 	@.dev/wait-for-success.sh nc -vz $(KDC_HOSTNAME) 88
 	@sleep 3
 	@.dev/wait-for-success.sh nc -vz $(KDC_HOSTNAME) 88
-	@.dev/wait-for-success.sh make dev/kinit	
+	@.dev/wait-for-success.sh make dev/kinit
+	@$(DOCKER_COMPOSE_DEV) logs -f
 
 .PHONY: dev/logs
 dev/logs:

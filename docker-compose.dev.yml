@@ -18,7 +18,7 @@ services:
     environment:
       - USER_UID
       - USER_GID
-      - KERBEROS_INIT_PRINCIPALS=${DEV_KERBEROS_USER:-} ${SERVICE_KERBEROS_USER:-}
+      - KERBEROS_INIT_PRINCIPALS=${DEV_KERBEROS_USER:-} ${HTTP_KERBEROS_USER:-} ${EVE_KERBEROS_USER:-}
       - KRB5_CONFIG=/run/kerberos/krb5.conf
       - KDC_HOSTNAME=kdc.localhost
       - KDC_DOMAIN=localhost
