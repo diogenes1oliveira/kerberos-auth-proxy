@@ -6,6 +6,7 @@ from urllib.parse import ParseResult, urlparse
 from typing import FrozenSet, List
 
 from mitmproxy.http import HTTPFlow, Response
+from mitmproxy.script import concurrent
 
 from kerberos_auth_proxy.mitm.filters import (
     check_knox,
@@ -32,6 +33,7 @@ KERBEROS_FILTER = kerberos_flow(
 
 
 class Addon:
+    @concurrent
     async def response(self, flow: HTTPFlow):
         '''
         Retries requests with recognized non-authorized responses using Kerberos/GSSAPI
