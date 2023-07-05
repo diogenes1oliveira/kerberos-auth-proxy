@@ -8,7 +8,7 @@ import sys
 
 from mitmproxy.http import HTTPFlow, Request
 
-from kerberos_auth_proxy.mitm.filters import do_with_kerberos, METADATA_KERBEROS_PRINCIPAL
+from kerberos_auth_proxy.mitm.filters.kerberos import do_with_kerberos, METADATA_KERBEROS_PRINCIPAL
 
 URL, PRINCIPAL, KEYTAB = sys.argv[1:]
 

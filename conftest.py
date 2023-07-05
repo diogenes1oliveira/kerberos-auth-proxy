@@ -8,7 +8,7 @@ from typing import Generator
 
 import pytest
 
-from tests.kerberizedserver import (
+from tests.stack.kerberizedserver import (
     __file__ as kerberizedserver_path,
     wait_for_url
 )

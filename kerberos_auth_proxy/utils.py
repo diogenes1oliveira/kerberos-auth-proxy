@@ -1,13 +1,33 @@
 '''
 Miscellaneous utilities
 '''
+
 from contextlib import contextmanager
 import os
-from typing import Callable, Generator, List, TypeVar
+from typing import Callable, Generator, List, Mapping, TypeVar
 import warnings
 
 T = TypeVar('T')
 Mapper = Callable[[str], T]
+
+
+def env_to_map(name: str) -> Mapping[str, str]:
+    '''
+    Extracts the mappings defined by '=' contained in the environment variable
+
+    An empty or unset environment variable always yields an empty list
+    '''
+    value = (os.getenv(name) or '').replace(',', ' ')
+    parts = value.split()
+    result = {}
+
+    for part in parts:
+        key, sep, value = part.partition('=')
+        if not (key and sep and value):
+            raise ValueError('Invalid mapping ' + part)
+        result[key] = value
+
+    return result
 
 
 def env_to_list(name: str, mapper: Mapper) -> List[T]:
