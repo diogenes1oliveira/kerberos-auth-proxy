@@ -1,4 +1,5 @@
 SHELL := /bin/sh
+.ONESHELL:
 
 USER_UID ?= $(shell id -u)
 USER_GID ?= $(shell id -g)
@@ -16,7 +17,7 @@ dev/up:
 	@.dev/wait-for-success.sh nc -vz $(KDC_HOSTNAME) 88
 	@sleep 3
 	@.dev/wait-for-success.sh nc -vz $(KDC_HOSTNAME) 88
-	@.dev/wait-for-success.sh make dev/kinit
+	@.dev/wait-for-success.sh make dev/kinit dev/pwd
 	@$(DOCKER_COMPOSE_DEV) logs -f
 
 .PHONY: dev/logs
@@ -36,9 +37,17 @@ dev/rm:
 dev/kinit:
 	$(DOCKER_COMPOSE_DEV) exec kdc krb5-kinit $(DEV_KERBEROS_USER)
 
+.PHONY: dev/pwd
+dev/pwd:
+	@test -n "$$DEV_USERS"
+	@rm -rf .htpasswd && touch .htpasswd
+	@export IFS=','
+	@for user in $$DEV_USERS; do htpasswd -iBb .htpasswd $$user teste; done
+
 .PHONY: clean
 clean:
 	@rm -rf tests/stack/kdc/run/*.keytab tests/stack/kdc/run/*.tmp tests/stack/kdc/run/krb5.conf
 	@find . -type d -name __pycache__ -not -path './.venv/*' -exec rm -rf {} \; 2> /dev/null || \
 		find . -type d -name __pycache__ -not -path './.venv/*' -exec rm -rf {} \;
-	@rm -rf .coverage coverage.xml
+	@rm -rf .coverage coverage.xml .htpasswd
+

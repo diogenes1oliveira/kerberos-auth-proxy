@@ -163,6 +163,7 @@ cython_debug/
 
 # Secrets
 *.keytab
+*.htpasswd
 
 # IDE stuff
 .vscode/
