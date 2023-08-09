@@ -4,12 +4,10 @@ Base definitions
 
 from mitmproxy.http import HTTPFlow
 
-from typing import Annotated, Awaitable, Callable, Iterable, Optional
+from typing import Awaitable, Callable, Iterable, Optional
 
-Filter = Annotated[
-    Callable[[HTTPFlow], Awaitable[Optional['Filter']]],
-    'An async function that accepts a flow, processes it and optionally returns the next filter to apply'
-]
+Filter = Callable[[HTTPFlow], Awaitable[Optional['Filter']]]
+'An async function that accepts a flow, processes it and optionally returns the next filter to apply'
 
 
 async def NULL_FILTER(_flow: HTTPFlow) -> None:
