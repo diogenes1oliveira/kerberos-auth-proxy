@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "kerberos-auth-proxy"
-version = "0.1.0a2"
+version = "0.1.0a3"
 description = "Proxy requests to Kerberos-enabled endpoints"
 authors = ["Diógenes Oliveira <diogenes1oliveira@gmail.com>"]
 readme = "README.md"
@@ -8,10 +8,10 @@ license = "MIT"
 packages = [{ include = "kerberos_auth_proxy" }]
 
 [tool.poetry.dependencies]
-python = "^3.6"
-mitmproxy = "^9.0"
+python = "^3.8"
+mitmproxy = "^8.0"
 requests-gssapi = "^1.2"
-flask = "^2.2"
+flask = "^2.0"
 aiohttp = "^3.8"
 
 [tool.poetry.group.test.dependencies]
@@ -23,7 +23,7 @@ flask-kerberos = "^1.0"
 pytest-asyncio = "^0.21"
 
 [tool.poetry.group.dev.dependencies]
-flake8 = "^6.0"
+flake8 = "^5.0"
 autopep8 = "^2.0"
 flask-kerberos = "^1.0"
 
