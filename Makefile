@@ -17,7 +17,8 @@ dev/up:
 	@.dev/wait-for-success.sh nc -vz $(KDC_HOSTNAME) 88
 	@sleep 3
 	@.dev/wait-for-success.sh nc -vz $(KDC_HOSTNAME) 88
-	@.dev/wait-for-success.sh make dev/kinit dev/pwd
+	@.dev/wait-for-success.sh make dev/kinit
+	@.dev/wait-for-success.sh make dev/pwd
 	@$(DOCKER_COMPOSE_DEV) logs -f
 
 .PHONY: dev/logs
@@ -28,7 +29,8 @@ dev/logs:
 .PHONY: dev/rm
 dev/rm:
 # Remover a stack local e limpar tudo
-	$(DOCKER_COMPOSE_DEV) rm -fsv
+	$(DOCKER_COMPOSE_DEV) down --volumes || true
+	$(DOCKER_COMPOSE_DEV) rm -fsv || true
 	$(DOCKER) volume prune -f
 	$(DOCKER) network prune -f
 	make clean
