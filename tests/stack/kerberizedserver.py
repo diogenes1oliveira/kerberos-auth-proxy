@@ -3,7 +3,6 @@
 import logging
 import os
 import re
-import socket
 from threading import Thread
 import time
 from typing import Callable, Optional
@@ -11,6 +10,7 @@ from typing import Callable, Optional
 from flask import Flask, request
 
 from kerberos_auth_proxy.utils import no_warnings
+from tests.utils import get_free_port
 
 with no_warnings(DeprecationWarning):
     from flask_kerberos import init_kerberos, requires_authentication
@@ -73,10 +73,7 @@ class KerberizedServer(Thread):
         self.hostname = hostname
 
         if not port:
-            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.socket.bind(('', 0))
-            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            self.port = self.socket.getsockname()[1]
+            self.port, self.socket = get_free_port()
         else:
             self.socket = None
             self.port = port

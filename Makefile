@@ -44,7 +44,7 @@ dev/pwd:
 	@test -n "$$DEV_USERS"
 	@rm -rf .htpasswd && touch .htpasswd
 	@export IFS=','
-	@for user in $$DEV_USERS; do htpasswd -iBb .htpasswd $$user teste; done
+	@for user in $$DEV_USERS; do htpasswd -iBb .htpasswd $$user "$(PROXY_PASSWORD)"; done
 
 .PHONY: clean
 clean:

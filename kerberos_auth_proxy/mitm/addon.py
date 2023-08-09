@@ -30,7 +30,11 @@ KERBEROS_REALM = os.environ['KERBEROS_REALM']
 HOST_MAPPINGS = [(urlparse(k), urlparse(v)) for k, v in env_to_map('HOST_MAPPINGS').items()]
 PROXY_HTPASSWD_PATH = os.environ['PROXY_HTPASSWD_PATH']
 
-auth_addon = AuthAddon([u[0].hostname for u in HOST_MAPPINGS], PROXY_HTPASSWD_PATH)
+auth_addon = AuthAddon(
+    external_hosts=[u[0].hostname for u in HOST_MAPPINGS],
+    htpasswd_path=PROXY_HTPASSWD_PATH,
+    realm=KERBEROS_REALM,
+)
 
 
 class KerberosAddon:
