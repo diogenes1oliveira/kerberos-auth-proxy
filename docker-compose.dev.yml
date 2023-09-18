@@ -25,7 +25,7 @@ services:
       - KERBEROS_REALM=LOCALHOST
       - KDC_MASTER_PASSWORD=password
       - KEYTABS_PATH=/run/kerberos
-      - KRB5CCNAME=/run/kerberos/cache.tmp
+      - KRB5CCNAME=DIR:/run/kerberos/cache.tmp
     mem_limit: 100m
     volumes:
       - ./tests/stack/kdc/run/:/run/kerberos/

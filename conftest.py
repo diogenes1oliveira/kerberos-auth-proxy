@@ -4,9 +4,14 @@ import re
 import sys
 import socket
 import subprocess
+from unittest.mock import MagicMock
 from typing import Generator
 
 import pytest
+from kerberos_auth_proxy.utils import no_warnings
+
+with no_warnings(DeprecationWarning):
+    from mitmproxy import ctx
 
 from tests.stack.kerberizedserver import (
     __file__ as kerberizedserver_path,
@@ -52,6 +57,47 @@ def kerberizedserver() -> Generator[str, None, None]:
 @pytest.fixture
 def kerberosprincipal() -> str:
     return os.environ['DEV_KERBEROS_USER']
+
+
+# quite ugly, but it works... I couldn't find a way to make the mock recognized
+@pytest.fixture(autouse=True)
+def mock_ctx_log():
+    if hasattr(ctx, 'log'):
+        restore_after = True
+        bkp = ctx.log
+    else:
+        restore_after = False
+
+    ctx.log = MagicMock()
+    ctx.log.info = MagicMock()
+    ctx.log.debug = MagicMock()
+
+    try:
+        yield
+    finally:
+        if restore_after:
+            ctx.log = bkp
+
+# quite ugly, but it works... I couldn't find a way to make the mock recognized
+
+
+@pytest.fixture(autouse=True)
+def mock_ctx_options():
+    if hasattr(ctx, 'options'):
+        restore_after = True
+        bkp = ctx.options
+    else:
+        restore_after = False
+
+    class Dummy:
+        pass
+    ctx.options = Dummy()
+
+    try:
+        yield ctx.options
+    finally:
+        if restore_after:
+            ctx.options = bkp
 
 
 def _random_port() -> int:

@@ -1576,6 +1576,16 @@ files = [
 ]
 
 [[package]]
+name = "timelength"
+version = "1.1.7"
+description = "A Python package to parse human readable lengths of time."
+optional = false
+python-versions = "*"
+files = [
+    {file = "timelength-1.1.7.tar.gz", hash = "sha256:2a6b6e0960f97e75997b8e298dfbb501ff326d78a4179c62eebedc078cde6fc6"},
+]
+
+[[package]]
 name = "tomli"
 version = "2.0.1"
 description = "A lil' TOML parser"
@@ -1813,4 +1823,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "aff8c7f17e86157d5120150403d04bf782004361f31c344de3fe993d358ceced"
+content-hash = "5f15255de83440ce4e45b2abab5b716e6d118e4a3e773a487e29e2e1d4a01bf2"

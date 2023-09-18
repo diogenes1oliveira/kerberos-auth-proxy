@@ -19,6 +19,9 @@ dev/up:
 	@.dev/wait-for-success.sh nc -vz $(KDC_HOSTNAME) 88
 	@.dev/wait-for-success.sh make dev/kinit
 	@.dev/wait-for-success.sh make dev/pwd
+	@echo; echo; echo
+	@echo >&2 "INFO: initialization complete, now following logs"
+	@echo; echo; echo
 	@$(DOCKER_COMPOSE_DEV) logs -f
 
 .PHONY: dev/logs

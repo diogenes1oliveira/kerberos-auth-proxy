@@ -3,42 +3,60 @@ Miscellaneous utilities
 '''
 
 from contextlib import contextmanager
-import os
-from typing import Callable, Generator, List, Mapping, TypeVar
+from typing import Callable, Generator, List, Mapping, Optional, TypeVar
 import warnings
 
 T = TypeVar('T')
 Mapper = Callable[[str], T]
 
 
-def env_to_map(name: str) -> Mapping[str, str]:
+def string_to_map(s: Optional[str]) -> Mapping[str, str]:
     '''
-    Extracts the mappings defined by '=' contained in the environment variable
+    Parses a string with a set of key=value items into a Python dict
 
-    An empty or unset environment variable always yields an empty list
+    The values might be space or comma-delimited
+
+    >>> string_to_map(None)
+    {}
+
+    >>> string_to_map('k1=v1 k2=v2')
+    {'k1': 'v1', 'k2': 'v2'}
+
+    >>> string_to_map('k1=v1,k2=v2')
+    {'k1': 'v1', 'k2': 'v2'}
+
+    >>> string_to_map('k1=v1 nokeyvalue ')
+    Traceback (most recent call last):
+        ...
+    ValueError: invalid mapping 'nokeyvalue'
     '''
-    value = (os.getenv(name) or '').replace(',', ' ')
+    value = (s or '').replace(',', ' ')
     parts = value.split()
     result = {}
 
     for part in parts:
         key, sep, value = part.partition('=')
-        if not (key and sep and value):
-            raise ValueError('Invalid mapping ' + part)
+        if not (key and sep):
+            raise ValueError(f'invalid mapping {part!r}')
         result[key] = value
 
     return result
 
 
-def env_to_list(name: str, mapper: Mapper) -> List[T]:
+def string_to_list(s: Optional[str], mapper: Mapper) -> List[T]:
     '''
-    Splits the environment variable value by whitespace or comma, removing empty
-    items from the result
+    Explodes a string to a list of converted values
 
-    An empty or unset environment variable always yields an empty list
+    The values might be space or comma-delimited
+
+    >>> string_to_list('1 2', mapper=int)
+    [1, 2]
+
+    >>> string_to_list(None, mapper=int)
+    []
     '''
-    value = os.getenv(name) or ''
-    return [mapper(item) for item in value.replace(',', ' ').split()]
+    s = s or ''
+    return [mapper(item) for item in s.replace(',', ' ').split() if item]
 
 
 @contextmanager

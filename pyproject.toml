@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "kerberos-auth-proxy"
-version = "0.1.0a6"
+version = "0.1.0a8"
 description = "Proxy requests to Kerberos-enabled endpoints"
 authors = ["Diógenes Oliveira <diogenes1oliveira@gmail.com>"]
 readme = "README.md"
@@ -13,6 +13,7 @@ mitmproxy = "^8.0"
 requests-gssapi = "^1.2"
 flask = "^2.0"
 aiohttp = "^3.8"
+timelength = "^1.1.7"
 
 [tool.poetry.group.test.dependencies]
 pytest-cov = "^4.1"

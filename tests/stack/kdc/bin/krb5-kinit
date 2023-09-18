@@ -18,7 +18,7 @@ Args:
 
 Environment variables:
     KERBEROS_REALM  value of the Kerberos realm
-    KRB5CCNAME      path to the ticket cache file
+    KRB5CCNAME      ticket cache config, must be a DIR: type
     KEYTABS_PATH    path to the directory containing the keytabs
     USER_UID        UID of the user that owns the ticket cache (default: id -u)
     USER_GID        GID of the user that owns the ticket cache (default: id -g)
@@ -35,6 +35,13 @@ PRINCIPAL=
 KEYTAB_NAME=
 
 main() {
+    if [[ "$KRB5CCNAME" =~ DIR:(.*)$ ]]; then
+        cache_path="${BASH_REMATCH[1]}"
+    else
+        echo >&2 "ERROR: \$KRB5CCNAME not of DIR: type"
+        exit 1
+    fi
+
     if [[ "$PRINCIPAL" =~ (.*?)@(.*)$ ]]; then
         PRINCIPAL="${BASH_REMATCH[1]}"
         realm="${BASH_REMATCH[2]}"
@@ -54,7 +61,7 @@ main() {
 
     set -x
     kinit -kt "$keytab_path" "$principal"
-    chown "$USER_UID:$USER_GID" "$KRB5CCNAME"
+    chown "$USER_UID:$USER_GID" "$cache_path"
 }
 
 for arg; do

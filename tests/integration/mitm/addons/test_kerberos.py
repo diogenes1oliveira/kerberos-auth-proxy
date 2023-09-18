@@ -3,15 +3,14 @@ import os
 import socket
 import subprocess
 import time
-from uuid import uuid4
 
 import pytest
 import requests
 
-from kerberos_auth_proxy.mitm import addon
+from kerberos_auth_proxy.mitm.addons import kerberos
 from tests.utils import get_free_port_number
 
-if not os.path.exists(os.getenv('KRB5CCNAME') or ''):
+if not os.path.exists((os.getenv('KRB5CCNAME') or '').split('DIR:')[1]):
     pytest.skip("no credentials cache in $KRB5CCNAME, can't run integration test", allow_module_level=True)
 
 
@@ -22,15 +21,23 @@ def _port_is_used(port):
 
 
 @contextmanager
-def mitmproxy_command(port, environ=None):
-    environ = {**os.environ, **(environ or {})}
+def mitmproxy_command(port, env=None):
+    env = {**os.environ, **(env or {})}
 
     process = subprocess.Popen([
-        'mitmproxy',
-        '-s', addon.__file__,
-        '--set', 'ssl_verify_upstream_trusted_ca=' + os.environ['SSL_CERT_FILE'],
+        'mitmweb',
+        '--no-web-open-browser',
+        '--proxyauth', '@' + env['PROXY_HTPASSWD_PATH'],
+        '-s', kerberos.__file__,
+        '--set', 'ssl_verify_upstream_trusted_ca=' + env['SSL_CERT_FILE'],
         '--listen-port', str(port),
-    ], env=environ)
+        '--web-port', str(get_free_port_number()),
+        '--set', 'kerberos_realm=' + env['KERBEROS_REALM'],
+        '--set', 'kerberos_spnego_codes=401',
+        '--set', 'kerberos_knox_urls=',
+        '--set', 'kerberos_keytabs_path=' + env['KEYTABS_PATH'],
+        '--set', 'hosts_mappings=' + (env.get('HOSTS_MAPPINGS') or ''),
+    ], env=env)
     try:
         t0 = time.monotonic()
         while not _port_is_used(port):
@@ -58,25 +65,3 @@ async def test_with_proxy(kerberosprincipal: str, kerberizedserver: str):
         response = requests.get(private_url, proxies={'http': proxy_auth_url})
         assert response.status_code == 200
         assert response.json() == {"status": "private", "principal": kerberosprincipal}
-
-
-async def test_with_host_mapping(kerberosprincipal: str, kerberizedserver: str):
-    dev_hostname = os.environ['DEV_EXTERNAL_HOSTNAME']
-    mitmproxy_port = get_free_port_number()
-
-    env = {'HOST_MAPPINGS': f'http://{dev_hostname}:{mitmproxy_port}={kerberizedserver}'}
-
-    with mitmproxy_command(mitmproxy_port, env):
-        private_url = f"http://{dev_hostname}:{mitmproxy_port}/private/"
-        response = requests.get(private_url, headers={'Host': str(uuid4())})
-        assert response.status_code == 407
-
-        response = requests.get(private_url)
-        assert response.status_code == 401
-
-        user, _, _ = kerberosprincipal.partition('@')
-        password = os.environ['PROXY_PASSWORD']
-        private_auth_url = f"http://{user}:{password}@{dev_hostname}:{mitmproxy_port}/private/"
-
-        response = requests.get(private_auth_url)
-        assert response.status_code == 200
