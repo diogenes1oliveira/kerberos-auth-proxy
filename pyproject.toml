@@ -31,3 +31,6 @@ flask-kerberos = "^1.0"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+kerberos-auth-proxy = "kerberos_auth_proxy.cmd:main"
