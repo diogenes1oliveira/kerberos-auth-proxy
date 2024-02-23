@@ -1,0 +1,7 @@
+/var
+/tmpcharts
+/charts
+/requirements.lock
+/Chart.lock
+*.env
+*.keytab

@@ -1,0 +1,10 @@
+---
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: {{ template "kerberos-auth-proxy.mitm-cert-name" . }}
+  namespace: {{ .Release.Namespace | quote }}
+data:
+  ca.key: {{ .Values.mitm.caKey | b64enc }}
+  ca.pem: {{ .Values.mitm.caPem | b64enc }}

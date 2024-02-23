@@ -1,0 +1,15 @@
+---
+apiVersion: v1
+kind: ConfigMap
+type: Opaque
+metadata:
+  name: {{ template "kerberos-auth-proxy.trust-cas-name" . }}
+  namespace: {{ .Release.Namespace | quote }}
+data:
+{{- with .Values.trustCAs }}
+{{- range $name, $content := . }}
+  {{ $name }}: {{ $content | quote }}
+{{- end }}
+{{- else }}
+  {}
+{{- end }}

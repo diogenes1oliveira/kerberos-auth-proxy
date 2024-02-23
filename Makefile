@@ -16,6 +16,7 @@ export
 
 .PHONY: build
 build:
+	poetry export -f requirements.txt --without-hashes --without-urls --output ./requirements.txt
 	poetry build
 	$(DOCKER) build $(DOCKER_BUILD_OPTS) \
 		--build-arg VERSION \

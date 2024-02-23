@@ -1,0 +1,17 @@
+---
+environments:
+  default:
+    values:
+      - ./values.yaml
+      - ./values.yaml.gotmpl
+---
+repositories: []
+
+releases:
+  - name: kerberos-auth-proxy
+    namespace: kerberos-auth-proxy
+    createNamespace: true
+    chart: ./
+    values:
+      - ./values.yaml
+      - ./values.yaml.gotmpl

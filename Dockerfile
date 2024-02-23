@@ -1,13 +1,20 @@
 FROM python:3.9-bullseye
 
-ARG VERSION
 WORKDIR /app
-COPY ./dist/kerberos_auth_proxy-$VERSION-py3-none-any.whl ./
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PIP_ROOT_USER_ACTION=ignore \
     PIP_NO_CACHE_DIR=1
 
+RUN apt-get update && \
+    apt-get install -y krb5-user && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY ./requirements.txt ./
+RUN pip3 install -r ./requirements.txt
+
+ARG VERSION
+COPY ./dist/kerberos_auth_proxy-$VERSION-py3-none-any.whl ./
 RUN pip3 install ./kerberos_auth_proxy-$VERSION-py3-none-any.whl
 
 ENV MITM_TLS_CA_PEM=/etc/security/tls/ca.pem \

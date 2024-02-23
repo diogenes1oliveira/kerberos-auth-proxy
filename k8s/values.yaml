@@ -1,0 +1,14 @@
+deployment:
+  repo: diogenes1oliveira/kerberos-auth-proxy
+  version: 0.1.0a14
+service:
+  type: ClusterIP
+mitm:
+  caKey: ""
+  caPem: ""
+  authPasssword: ""
+  env: {}
+trustCAs: {}
+kerberos:
+  krb5Conf: ""
+  keytabs: {}

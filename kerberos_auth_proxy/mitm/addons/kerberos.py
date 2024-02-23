@@ -43,14 +43,14 @@ def check_spnego(unauthorized_codes: Collection[int]) -> Predicate:
         www_authenticate = flow.response.headers.get(b'WWW-Authenticate') or ''
 
         if flow.response.status_code not in unauthorized_codes:
-            ctx.log.debug(f'not SPNEGO, unknown HTTP code {flow.response.status_code}')
+            logger.debug(f'not SPNEGO, unknown HTTP code {flow.response.status_code}')
             return False
 
         if www_authenticate != 'Negotiate' and not www_authenticate.startswith('Negotiate '):
-            ctx.log.debug(f'not SPNEGO, unrecognized WWW-Authenticate header {www_authenticate!r}')
+            logger.debug(f'not SPNEGO, unrecognized WWW-Authenticate header {www_authenticate!r}')
             return False
 
-        ctx.log.info('SPNEGO access denial, should retry with Kerberos')
+        logger.info('SPNEGO access denial, should retry with Kerberos')
         return True
 
     return check_spnego_predicate
@@ -63,16 +63,16 @@ def check_knox(
 ) -> Predicate:
     def check_knox_predicate(flow: HTTPFlow):
         if flow.response.status_code not in redirect_codes:
-            ctx.log.debug(f'not KNOX, unknown redirect code {flow.response.status_code}')
+            logger.debug(f'not KNOX, unknown redirect code {flow.response.status_code}')
             return False
 
         if flow.request.method != "GET":
-            ctx.log.debug(f'not KNOX, unsupported HTTP method {flow.request.method!r}')
+            logger.debug(f'not KNOX, unsupported HTTP method {flow.request.method!r}')
             return False
 
         location_header = flow.response.headers.get(b'Location') or ''
         if not location_header:
-            ctx.log.debug('not KNOX, no Location header')
+            logger.debug('not KNOX, no Location header')
             return False
 
         location_url = urlparse(location_header)
@@ -83,13 +83,13 @@ def check_knox(
 
             if user_agent_override:
                 flow.request.headers[b'User-Agent'] = user_agent_override
-                ctx.log.info('KNOX redirect, should retry with Kerberos overriding the user agent')
+                logger.info('KNOX redirect, should retry with Kerberos overriding the user agent')
             else:
-                ctx.log.info('KNOX redirect, should retry with Kerberos')
+                logger.info('KNOX redirect, should retry with Kerberos')
 
             return True
         else:
-            ctx.log.debug(f"not KNOX, URL {location_header} doesn't any of {knox_urls}")
+            logger.debug(f"not KNOX, URL {location_header} doesn't any of {knox_urls}")
             return False
 
     return check_knox_predicate
@@ -110,10 +110,10 @@ class KerberosCache:
 
         keytab_path = self.get_keytab_path(username)
 
-        ctx.log.debug(f'getting principal from keytab {keytab_path}')
+        logger.debug(f'getting principal from keytab {keytab_path}')
         principal = await self.get_principal_from_keytab(keytab_path)
         if not principal:
-            ctx.log.info(f'no credencials available for user {username!r}')
+            logger.info(f'no credencials available for user {username!r}')
             return
 
         self.principals[username] = principal
@@ -128,31 +128,31 @@ class KerberosCache:
         '''
         principal = await self.get_principal(username, refresh=True)
         if not principal:
-            ctx.log.info(f'no credencials available for user {username!r}')
+            logger.info(f'no credencials available for user {username!r}')
             return
 
         keytab_path = self.get_keytab_path(username)
 
-        ctx.log.debug(f'principal for {username!r} is {principal}, now acquiring cache lock')
+        logger.debug(f'principal for {username!r} is {principal}, now acquiring cache lock')
 
         async with self.lock:
             if not refresh and self.has_valid_login(username):
-                ctx.log.info(f'now using cached credentials for user {username!r}')
+                logger.info(f'now using cached credentials for user {username!r}')
                 return principal
 
-            ctx.log.debug(f'getting credencials for {principal} from keytab {keytab_path}')
+            logger.debug(f'getting credencials for {principal} from keytab {keytab_path}')
             process = await asyncio.create_subprocess_exec(
                 'kinit', '-kt', keytab_path, principal,
             )
             await process.communicate()
             if process.returncode != 0:
-                ctx.log.warn(f'failed to authenticate {username} using principal {principal}')
+                logger.warn(f'failed to authenticate {username} using principal {principal}')
                 return
 
             self.last_kinits[username] = time.monotonic()
             self.principals[principal] = principal
 
-            ctx.log.debug(f'successfully authenticated {principal} from keytab {keytab_path}')
+            logger.debug(f'successfully authenticated {principal} from keytab {keytab_path}')
             return principal
 
     def has_valid_login(self, username) -> bool:
@@ -201,7 +201,7 @@ async def do_with_kerberos(flow: HTTPFlow, principal: str):
         negotiate = await generate_spnego_negotiate(flow.request.host, principal)
         flow.request.headers[b'Authorization'] = negotiate
     except SPNEGOExchangeError:
-        ctx.log.warn('error while generating SPNEGO header')
+        logger.warn('error while generating SPNEGO header')
         raise
 
     async with aiohttp.ClientSession() as session:
@@ -216,10 +216,10 @@ async def do_with_kerberos(flow: HTTPFlow, principal: str):
             data=flow.request.raw_content,
         )
 
-        ctx.log.debug(f'sending Kerberized request with principal {principal}')
+        logger.debug(f'sending Kerberized request with principal {principal}')
 
         async with session.request(**kwargs) as response:
-            ctx.log.debug(f'aiohttp request headers: {response.request_info.headers}')
+            logger.debug(f'aiohttp request headers: {response.request_info.headers}')
             flow.response = Response.make(
                 status_code=response.status,
                 headers=response.raw_headers,
@@ -280,7 +280,7 @@ class KerberosAddon:
         )
 
     def configure(self, _updated: Optional[Set[str]] = None):
-        ctx.log.info('(re)configuring kerberos addon')
+        logger.info('(re)configuring kerberos addon')
 
         cache_name = os.getenv('KRB5CCNAME') or ''
         if not cache_name.startswith('DIR:'):
@@ -301,25 +301,28 @@ class KerberosAddon:
         )
 
     async def response(self, flow: HTTPFlow):
+        if not self.is_spnego:
+            self.configure()
+
         if not self.is_spnego(flow) and not self.is_knox(flow):
-            ctx.log.debug('not a kerberos response, skipping')
+            logger.debug('not a kerberos response, skipping')
             return
 
         proxy_auth = flow.metadata.get('proxyauth')
         if not proxy_auth:
-            ctx.log.info('no authenticated user, skipping Kerberos flow')
+            logger.info('no authenticated user, skipping Kerberos flow')
             return
 
         username = proxy_auth[0]
 
         if self.kerberos_cache.has_valid_login(username):
-            ctx.log.info(f'using cached credentials for user {username!r}')
+            logger.info(f'using cached credentials for user {username!r}')
         else:
             await self.kerberos_cache.login(username)
 
         principal = await self.kerberos_cache.login(username)
         if not principal:
-            ctx.log.debug('no credentials available for Kerberos, skipping')
+            logger.debug('no credentials available for Kerberos, skipping')
             return
 
         await do_with_kerberos(flow, principal)

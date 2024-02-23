@@ -1,0 +1,31 @@
+mitm:
+  caKey: {{ requiredEnv "MITM_TLS_CA_KEY" | readFile | quote }}
+  caPem: {{ requiredEnv "MITM_TLS_CA_PEM" | readFile | quote }}
+  env:
+    {{- $envNames := exec "awk" (list "BEGIN {for (var in ENVIRON) {if (var ~ \"^MITM_OPT_\" || var ~ \"^MITM_SET\") print var}}") }}
+    {{- $envNames := without (regexSplit "\n" $envNames -1) "" "MITM_SET_KERBEROS_KEYTABS_PATH" }}
+    {{- with $envNames }}
+    {{- range $index, $name := $envNames }}
+    {{ $name }}: {{ requiredEnv $name | quote }}
+    {{- end }}
+    {{- else }}
+    {}
+    {{- end }}
+trustCAs:
+  {{- if or (not (env "MITM_TRUST_CAS_DIR")) (not (env "MITM_TRUST_CAS_DIR" | readDir) ) }}
+  {}
+  {{- else }}
+  {{- range $index, $item := requiredEnv "MITM_TRUST_CAS_DIR" | readDir  }}
+  {{ $item | base }}: {{ $item | readFile | quote }}
+  {{- end }}
+  {{- end }}
+kerberos:
+  keytabs:
+    {{- if or (not (env "MITM_SET_KERBEROS_KEYTABS_PATH")) (not (env "MITM_SET_KERBEROS_KEYTABS_PATH" | readDir) ) }}
+    {}
+    {{- else }}
+    {{- range $index, $item := requiredEnv "MITM_SET_KERBEROS_KEYTABS_PATH" | readDir  }}
+    {{ $item | base }}: {{ exec "base64" (list "-w0" $item) | quote }}
+    {{- end }}
+    {{- end }}
+  krb5Conf: {{ requiredEnv "KRB5_CONFIG" | readFile | quote }}

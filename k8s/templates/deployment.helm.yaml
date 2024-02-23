@@ -1,0 +1,91 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: proxy
+  namespace: "{{ .Release.Namespace }}"
+  labels:
+    app: proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: proxy
+  template:
+    metadata:
+      labels:
+        app: proxy
+    spec:
+      containers:
+        - name: proxy
+          image: {{ printf "%s:%s" .Values.deployment.repo .Values.deployment.version }}
+          ports:
+            - name: proxy
+              containerPort: 8081
+            - name: ui
+              containerPort: 9047
+          env:
+            - name: KRB5_CONFIG
+              value: /etc/krb5.conf
+            - name: MITM_SET_KERBEROS_KEYTABS_PATH
+              value: /etc/security/keytabs
+            - name: MITM_TLS_CA_KEY
+              value: /etc/security/mitm/ca.key
+            - name: MITM_TLS_CA_PEM
+              value: /etc/security/mitm/ca.pem
+            - name: MITM_OPT_LISTEN_PORT
+              value: "8081"
+            - name: MITM_OPT_WEB_PORT
+              value: "9047"
+            - name: MITM_OPT_NO_WEB_OPEN_BROWSER
+              value: "-"
+            - name: MITM_SET_BLOCK_GLOBAL
+              value: "false"
+            - name: MITM_OPT_LISTEN_HOST
+              value: "0.0.0.0"
+            - name: KRB5CCNAME
+              value: DIR:/tmp
+            {{- range $name, $value := .Values.mitm.env }}
+            - name: {{ $name }}
+              value: {{ $value | quote }}
+            {{- end }}
+          livenessProbe:
+            tcpSocket:
+              port: proxy
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          readinessProbe:
+            tcpSocket:
+              port: proxy
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 100Mi
+            limits:
+              cpu: 120m
+              memory: 120Mi
+          volumeMounts:
+            - mountPath: /etc/krb5.conf
+              name: kerberos
+              subPath: krb5.conf
+            - mountPath: /etc/security/keytabs
+              name: keytabs
+            - mountPath: /etc/security/mitm
+              name: mitm
+            - mountPath: /usr/local/share/ca-certificates
+              name: cas
+      volumes:
+        - name: kerberos
+          configMap:
+            name: {{ template "kerberos-auth-proxy.kerberos-conf-name" . }}
+        - name: keytabs
+          secret:
+            secretName: {{ template "kerberos-auth-proxy.kerberos-keytabs-name" .}}
+        - name: mitm
+          secret:
+            secretName: {{ template "kerberos-auth-proxy.mitm-cert-name" .}}
+        - name: cas
+          configMap:
+            name: {{ template "kerberos-auth-proxy.trust-cas-name" . }}
