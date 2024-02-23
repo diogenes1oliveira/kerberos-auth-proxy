@@ -7,7 +7,26 @@ DOCKER ?= docker
 DOCKER_COMPOSE ?= docker compose
 DOCKER_COMPOSE_DEV ?= $(DOCKER_COMPOSE) -f docker-compose.dev.yml
 
+VERSION ?= $(shell sh .dev/version.sh)
+VERSION := $(VERSION)
+
+IMAGE_NAME ?= diogenes1oliveira/kerberos-auth-proxy
+
 export
+
+.PHONY: build
+build:
+	poetry build
+	$(DOCKER) build $(DOCKER_BUILD_OPTS) \
+		--build-arg VERSION \
+		-t $(IMAGE_NAME):$(VERSION) \
+		.
+	$(DOCKER) tag $(IMAGE_NAME):$(VERSION) $(IMAGE_NAME):latest
+
+.PHONY: push
+push:
+	$(DOCKER) push $(IMAGE_NAME):$(VERSION)
+	$(DOCKER) push $(IMAGE_NAME):latest
 
 .PHONY: dev/up
 dev/up:

@@ -1,3 +1,9 @@
-*
-!/kerberos_auth_proxy
-!pyproject.toml
+/var
+/tmp
+.vscode/
+*.env
+*.envrc
+*.secret
+*.pem
+*.crt
+*.key
