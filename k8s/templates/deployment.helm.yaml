@@ -45,6 +45,13 @@ spec:
               value: "0.0.0.0"
             - name: KRB5CCNAME
               value: DIR:/tmp
+            {{- if .Values.mitm.authPassword }}
+            - name: MITM_OPT_PROXYAUTH
+              value: "@/etc/security/htpasswd"
+            {{- else }}
+            - name: MITM_OPT_PROXYAUTH
+              value: any
+            {{- end }}
             {{- range $name, $value := .Values.mitm.env }}
             - name: {{ $name }}
               value: {{ $value | quote }}
@@ -76,6 +83,9 @@ spec:
               name: mitm
             - mountPath: /usr/local/share/ca-certificates
               name: cas
+            - mountPath: /etc/security/htpasswd
+              name: auth
+              subPath: auth
       volumes:
         - name: kerberos
           configMap:
@@ -86,6 +96,9 @@ spec:
         - name: mitm
           secret:
             secretName: {{ template "kerberos-auth-proxy.mitm-cert-name" .}}
+        - name: auth
+          secret:
+            secretName: {{ template "kerberos-auth-proxy.mitm-auth-name" .}}
         - name: cas
           configMap:
             name: {{ template "kerberos-auth-proxy.trust-cas-name" . }}

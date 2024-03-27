@@ -1,6 +1,7 @@
 mitm:
   caKey: {{ requiredEnv "MITM_TLS_CA_KEY" | readFile | quote }}
   caPem: {{ requiredEnv "MITM_TLS_CA_PEM" | readFile | quote }}
+  authPassword: {{ env "MITM_AUTH_PASSWORD" | quote }}
   env:
     {{- $envNames := exec "awk" (list "BEGIN {for (var in ENVIRON) {if (var ~ \"^MITM_OPT_\" || var ~ \"^MITM_SET\") print var}}") }}
     {{- $envNames := without (regexSplit "\n" $envNames -1) "" "MITM_SET_KERBEROS_KEYTABS_PATH" }}

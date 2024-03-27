@@ -1,10 +1,16 @@
+{{- $keytabNames := (.Values.kerberos.keytabs | keys | sortAlpha) -}}
 ---
 apiVersion: v1
 kind: Secret
 type: Opaque
 metadata:
-  name: {{ template "kerberos-auth-proxy.mitm-cert-name" . }}
+  name: {{ template "kerberos-auth-proxy.mitm-auth-name" . }}
   namespace: {{ .Release.Namespace | quote }}
 data:
-  ca.key: {{ .Values.mitm.caKey | b64enc }}
-  ca.pem: {{ .Values.mitm.caPem | b64enc }}
+  auth: |
+    IyB1c2Vycwo=
+    {{- if or (not .Values.mitm.authPassword) (not $keytabNames) }}
+    {{- range $i, $name := (.Values.kerberos.keytabs | keys | sortAlpha) }}
+    {{- (htpasswd $name $.Values.mitm.authPassword) | indent 4 | b64enc }}
+    {{- end }}
+    {{- end }}
