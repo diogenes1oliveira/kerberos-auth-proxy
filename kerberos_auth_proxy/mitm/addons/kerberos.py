@@ -5,6 +5,7 @@ Filters for handling Kerberos negotiations
 import asyncio
 import logging
 import os
+import re
 import time
 from typing import Callable, Collection, Mapping, Optional, Set
 from urllib.parse import ParseResult, urlparse
@@ -29,6 +30,7 @@ METADATA_PRINCIPAL = 'kerberos_principal'
 
 OPTION_REALM = 'kerberos_realm'
 OPTION_SPNEGO_CODES = 'kerberos_spnego_codes'
+OPTION_SPNEGO_FORCE_PATTERNS = 'kerberos_spnego_force_patterns'
 OPTION_KNOX_URLS = 'kerberos_knox_urls'
 OPTION_KNOX_CODES = 'kerberos_knox_codes'
 OPTION_KNOX_UA_OVERRIDE = 'kerberos_knox_user_agent_override'
@@ -38,9 +40,13 @@ OPTION_CACHE_EXPIRATION = 'kerberos_cache_expiration'
 Predicate = Callable[[HTTPFlow], bool]
 
 
-def check_spnego(unauthorized_codes: Collection[int]) -> Predicate:
+def check_spnego(force_patterns: Collection[re.Pattern], unauthorized_codes: Collection[int]) -> Predicate:
     def check_spnego_predicate(flow: HTTPFlow):
         www_authenticate = flow.response.headers.get(b'WWW-Authenticate') or ''
+
+        if any(pattern.match(flow.request.url) for pattern in force_patterns):
+            logger.debug('Request should be forced through SPNEGO')
+            return True
 
         if flow.response.status_code not in unauthorized_codes:
             logger.debug(f'not SPNEGO, unknown HTTP code {flow.response.status_code}')
@@ -249,6 +255,12 @@ class KerberosAddon:
             help="List of SPNEGO access denial HTTP status codes",
         )
         loader.add_option(
+            name=OPTION_SPNEGO_FORCE_PATTERNS,
+            typespec=str,
+            default='',
+            help="List of URL patterns that should be forced through SPNEGO",
+        )
+        loader.add_option(
             name=OPTION_KNOX_URLS,
             typespec=str,
             default='',
@@ -292,6 +304,7 @@ class KerberosAddon:
             expiration=TimeLength(getattr(ctx.options, OPTION_CACHE_EXPIRATION)).total_seconds,
         )
         self.is_spnego = check_spnego(
+            force_patterns=string_to_list(getattr(ctx.options, OPTION_SPNEGO_FORCE_PATTERNS), re.compile),
             unauthorized_codes=string_to_list(getattr(ctx.options, OPTION_SPNEGO_CODES), int),
         )
         self.is_knox = check_knox(

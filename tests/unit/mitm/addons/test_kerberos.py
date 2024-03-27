@@ -32,7 +32,7 @@ async def test_check_spnego(
     flow = HTTPFlow(None, None)
     flow.response = response
 
-    assert check_spnego(spnego_codes)(flow) == expected_result
+    assert check_spnego([], spnego_codes)(flow) == expected_result
 
 
 @pytest.mark.parametrize(
