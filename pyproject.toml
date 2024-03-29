@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "kerberos-auth-proxy"
-version = "0.1.0a15"
+version = "0.1.0a16"
 description = "Proxy requests to Kerberos-enabled endpoints"
 authors = ["Diógenes Oliveira <diogenes1oliveira@gmail.com>"]
 readme = "README.md"

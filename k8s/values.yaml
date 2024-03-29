@@ -1,6 +1,6 @@
 deployment:
   repo: diogenes1oliveira/kerberos-auth-proxy
-  version: 0.1.0a15
+  version: 0.1.0a16
 service:
   type: ClusterIP
 mitm:

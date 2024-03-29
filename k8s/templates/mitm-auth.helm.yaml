@@ -6,11 +6,12 @@ type: Opaque
 metadata:
   name: {{ template "kerberos-auth-proxy.mitm-auth-name" . }}
   namespace: {{ .Release.Namespace | quote }}
-data:
+stringData:
   auth: |
-    IyB1c2Vycwo=
-    {{- if or (not .Values.mitm.authPassword) (not $keytabNames) }}
-    {{- range $i, $name := (.Values.kerberos.keytabs | keys | sortAlpha) }}
-    {{- (htpasswd $name $.Values.mitm.authPassword) | indent 4 | b64enc }}
+    {{- if and .Values.mitm.authPassword $keytabNames }}
+    {{- range $i, $name := $keytabNames }}
+    {{- (htpasswd (trimSuffix ".keytab" $name) $.Values.mitm.authPassword) | nindent 4 }}
     {{- end }}
+    {{- else }}
+    # no users
     {{- end }}

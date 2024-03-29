@@ -47,7 +47,7 @@ spec:
               value: DIR:/tmp
             {{- if .Values.mitm.authPassword }}
             - name: MITM_OPT_PROXYAUTH
-              value: "@/etc/security/htpasswd"
+              value: "@/etc/security/auth/auth"
             {{- else }}
             - name: MITM_OPT_PROXYAUTH
               value: any
@@ -83,9 +83,8 @@ spec:
               name: mitm
             - mountPath: /usr/local/share/ca-certificates
               name: cas
-            - mountPath: /etc/security/htpasswd
+            - mountPath: /etc/security/auth
               name: auth
-              subPath: auth
       volumes:
         - name: kerberos
           configMap:
