@@ -7,7 +7,6 @@ if [ -f "${MITM_TLS_CA_PEM:-}" ]; then
     fi
 
     echo >&2 "INFO: found CA at '$MITM_TLS_CA_PEM' and '$MITM_TLS_CA_KEY'"
-    rm -rf "$MITM_SET_CONFDIR"
     mkdir -p "$MITM_SET_CONFDIR"
 
     cat "$MITM_TLS_CA_PEM" > "$MITM_SET_CONFDIR/mitmproxy-ca.pem"
