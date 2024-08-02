@@ -1,6 +1,6 @@
-'''
+"""
 Miscellaneous utilities for remapping hosts and URLs
-'''
+"""
 
 from typing import Optional
 from urllib.parse import urlparse, urlunparse, ParseResult
@@ -10,8 +10,10 @@ from mitmproxy.http import Request, Response
 REDIRECT_CODES = [301, 302, 303, 307, 307, 308]
 
 
-def request_rebase(request: Request, matcher_url: ParseResult, target_url: ParseResult) -> Optional[bool]:
-    '''
+def request_rebase(
+    request: Request, matcher_url: ParseResult, target_url: ParseResult
+) -> Optional[bool]:
+    """
     Checks if the request url matches the matcher parameter and if so rebases it into the target URL
 
     >>> matcher_url = urlparse('http://example.external:8080/api/v1')
@@ -26,7 +28,7 @@ def request_rebase(request: Request, matcher_url: ParseResult, target_url: Parse
     >>> request = Request.make('GET', 'http://other')
     >>> request_rebase(request, matcher_url, target_url) is None
     True
-    '''
+    """
     if not url_parts_matches(matcher_url, request.host, request.port, request.path):
         return
 
@@ -39,8 +41,10 @@ def request_rebase(request: Request, matcher_url: ParseResult, target_url: Parse
     return request
 
 
-def redirect_rebase(response: Response, matcher_url: ParseResult, target_url: ParseResult) -> bool:
-    '''
+def redirect_rebase(
+    response: Response, matcher_url: ParseResult, target_url: ParseResult
+) -> bool:
+    """
     Checks if the response is a redirect and if its Location matches the matcher parameter. If so,
     rebase it into the target URL
 
@@ -66,13 +70,13 @@ def redirect_rebase(response: Response, matcher_url: ParseResult, target_url: Pa
     >>> redirected and response.headers[b'Location']
     'http://external/v2/resource'
 
-    '''
+    """
     if response.status_code not in REDIRECT_CODES:
         return False
 
     try:
-        location = response.headers.get(b'Location')
-        location_url = urlparse(location or '')
+        location = response.headers.get(b"Location")
+        location_url = urlparse(location or "")
     except Exception:
         return False
 
@@ -81,14 +85,16 @@ def redirect_rebase(response: Response, matcher_url: ParseResult, target_url: Pa
 
     rebased_url = url_rebase(matcher_url, location_url, target_url)
     if rebased_url:
-        response.headers[b'Location'] = urlunparse(rebased_url)
+        response.headers[b"Location"] = urlunparse(rebased_url)
         return True
 
     return False
 
 
-def url_rebase(matcher_url: ParseResult, url: ParseResult, target_url: ParseResult) -> Optional[ParseResult]:
-    '''
+def url_rebase(
+    matcher_url: ParseResult, url: ParseResult, target_url: ParseResult
+) -> Optional[ParseResult]:
+    """
     Checks if the url matches the matcher parameter and if so rebases it into the target URL
 
     >>> matcher_url = urlparse('http://example.external:8080/api/v1')
@@ -107,30 +113,30 @@ def url_rebase(matcher_url: ParseResult, url: ParseResult, target_url: ParseResu
     >>> target_url = ParseResult(scheme='http', netloc='external:80', path='/v2', params='', query='', fragment='')
     >>> url_rebase(matcher_url, url, target_url)
     ParseResult(scheme='http', netloc='external', path='/v2/resource', params='', query='', fragment='')
-    '''
+    """
     if not url_parts_matches(matcher_url, url.hostname, url_port(url), url.path):
         return
 
     return url._replace(
         scheme=target_url.scheme,
-        netloc=f'{url_netloc(target_url)}',
-        path=path_rebase(matcher_url.path, url.path, target_url.path)
+        netloc=f"{url_netloc(target_url)}",
+        path=path_rebase(matcher_url.path, url.path, target_url.path),
     )
 
 
 def path_rebase(matcher_path: str, path: str, target_path: str) -> str:
-    '''
+    """
     Rebase a given path onto a target path by replacing the matched portion of the path
 
     >>> path_rebase('/v1/', '/v1/some/stuff', '/v2/')
     '/v2/some/stuff'
-    '''
-    base_path = path[len(matcher_path):]
+    """
+    base_path = path[len(matcher_path) :]
     return target_path + base_path
 
 
 def url_parts_matches(matcher_url: ParseResult, hostname: str, port: int, path: str):
-    '''
+    """
     Checks if the hostname, port and path all match the matcher_url parameter
 
     >>> matcher_url = urlparse('http://localhost:8080/v1')
@@ -148,7 +154,7 @@ def url_parts_matches(matcher_url: ParseResult, hostname: str, port: int, path: 
     >>> matcher_url = urlparse('http://localhost:8080/v1')
     >>> url_parts_matches(matcher_url, 'localhost', 8081, '/v1')
     False
-    '''
+    """
     if port != url_port(matcher_url):
         return False
 
@@ -162,7 +168,7 @@ def url_parts_matches(matcher_url: ParseResult, hostname: str, port: int, path: 
 
 
 def url_matches(matcher_url: ParseResult, url: ParseResult) -> bool:
-    '''
+    """
     Checks if the hostname, port and path all match the matcher_url parameter
 
     >>> matcher_url = urlparse('http://example/some')
@@ -174,12 +180,12 @@ def url_matches(matcher_url: ParseResult, url: ParseResult) -> bool:
     >>> url = urlparse('http://example:80/some/stuff')
     >>> url_matches(matcher_url, url)
     True
-    '''
+    """
     return url_parts_matches(matcher_url, url.hostname, url_port(url), url.path)
 
 
 def url_port(url: ParseResult) -> int:
-    '''
+    """
     Gets the url port or a default one based on the protocol.
 
     Raises:
@@ -202,19 +208,19 @@ def url_port(url: ParseResult) -> int:
     Traceback (most recent call last):
         ...
     ValueError: unknown scheme: 'unknown'
-    '''
+    """
     if url.port is not None:
         return url.port
-    if url.scheme == 'http':
+    if url.scheme == "http":
         return 80
-    elif url.scheme == 'https':
+    elif url.scheme == "https":
         return 443
     else:
         raise ValueError(f"unknown scheme: '{url.scheme}'")
 
 
 def url_netloc(url: ParseResult) -> int:
-    '''
+    """
     Gets the url netloc, removing the port if it's the default one based on the protocol
 
     >>> url = urlparse('http://localhost:8080/v1')
@@ -228,17 +234,17 @@ def url_netloc(url: ParseResult) -> int:
     >>> url = urlparse('https://example.com:443')
     >>> url_netloc(url)
     'example.com'
-    '''
-    if url.scheme == 'http' and url.port == 80:
+    """
+    if url.scheme == "http" and url.port == 80:
         return url.hostname
-    elif url.scheme == 'https' and url.port == 443:
+    elif url.scheme == "https" and url.port == 443:
         return url.hostname
     else:
         return url.netloc
 
 
 def url_default_port(scheme: str) -> int:
-    '''
+    """
     Gets the default url port for the given scheme
 
     Raises:
@@ -254,10 +260,10 @@ def url_default_port(scheme: str) -> int:
     Traceback (most recent call last):
         ...
     ValueError: unknown scheme 'unknown'
-    '''
-    if scheme == 'http':
+    """
+    if scheme == "http":
         return 80
-    elif scheme == 'https':
+    elif scheme == "https":
         return 443
     else:
         raise ValueError(f"unknown scheme '{scheme}'")
