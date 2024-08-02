@@ -219,7 +219,7 @@ def url_port(url: ParseResult) -> int:
         raise ValueError(f"unknown scheme: '{url.scheme}'")
 
 
-def url_netloc(url: ParseResult) -> int:
+def url_netloc(url: ParseResult) -> str:
     """
     Gets the url netloc, removing the port if it's the default one based on the protocol
 

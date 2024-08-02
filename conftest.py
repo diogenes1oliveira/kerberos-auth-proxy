@@ -7,6 +7,7 @@ import subprocess
 from unittest.mock import MagicMock
 from typing import Generator
 
+from dotenv import load_dotenv
 import pytest
 from kerberos_auth_proxy.utils import no_warnings
 
@@ -14,6 +15,8 @@ with no_warnings(DeprecationWarning):
     from mitmproxy import ctx
 
 from tests.stack.kerberizedserver import __file__ as kerberizedserver_path, wait_for_url
+
+load_dotenv(override=True)
 
 
 @pytest.fixture(autouse=True)

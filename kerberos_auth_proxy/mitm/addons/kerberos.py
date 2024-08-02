@@ -17,7 +17,7 @@ from requests_gssapi import HTTPSPNEGOAuth
 from requests_gssapi.exceptions import SPNEGOExchangeError
 
 from kerberos_auth_proxy.utils import string_to_list, no_warnings
-from kerberos_auth_proxy.mitm.hostutils import url_matches
+from kerberos_auth_proxy.mitm.hostutils import url_matches, url_netloc
 
 with no_warnings(DeprecationWarning):
     from mitmproxy import ctx
@@ -27,13 +27,14 @@ with no_warnings(DeprecationWarning):
 logger = logging.getLogger(__name__)
 
 METADATA_PRINCIPAL = "kerberos_principal"
+METADATA_COOKIE_URL = "kerberos_cookie_url"
 
 OPTION_REALM = "kerberos_realm"
 OPTION_SPNEGO_CODES = "kerberos_spnego_codes"
 OPTION_SPNEGO_FORCE_PATTERNS = "kerberos_spnego_force_patterns"
 OPTION_KNOX_URLS = "kerberos_knox_urls"
 OPTION_KNOX_CODES = "kerberos_knox_codes"
-OPTION_KERBEROS_KNOX_COOKIE_URL = "kerberos_knox_cookie_url"
+OPTION_KNOX_COOKIE_URL = "knox_cookie_url"
 OPTION_KNOX_UA_OVERRIDE = "kerberos_knox_user_agent_override"
 OPTION_KEYTABS_PATH = "kerberos_keytabs_path"
 OPTION_CACHE_EXPIRATION = "kerberos_cache_expiration"
@@ -73,6 +74,7 @@ def check_knox(
     redirect_codes: Collection[int],
     knox_urls: Collection[ParseResult],
     user_agent_override: Optional[str],
+    cookie_url: Optional[str] = None,
 ) -> Predicate:
     def check_knox_predicate(flow: HTTPFlow):
         if flow.response.status_code not in redirect_codes:
@@ -101,6 +103,10 @@ def check_knox(
                 )
             else:
                 logger.info("KNOX redirect, should retry with Kerberos")
+
+            if cookie_url:
+                logger.info("getting auth cookie from %s", cookie_url)
+                flow.metadata[METADATA_COOKIE_URL] = cookie_url
 
             return True
         else:
@@ -223,18 +229,50 @@ async def generate_spnego_negotiate(host: str, principal: str) -> str:
     )
 
 
+async def do_request(method: str, url: str, headers, data) -> Response:
+    async with aiohttp.ClientSession() as session:
+        kwargs = dict(
+            method=method,
+            url=url,
+            headers=headers,
+            data=data,
+        )
+
+        async with session.request(**kwargs) as response:
+            return Response.make(
+                status_code=response.status,
+                headers=response.raw_headers,
+                content=await response.content.read(),
+            )
+
+
 async def do_with_kerberos(flow: HTTPFlow, principal: str):
     """
     Sends the request with Kerberos authentication.
 
     This requires the principal to already be authenticated in the ticket cache
     """
+    cookie_url = flow.metadata.get(METADATA_COOKIE_URL)
+    if cookie_url:
+        host = url_netloc(urlparse(cookie_url))
+    else:
+        host = flow.request.host
+
     try:
-        negotiate = await generate_spnego_negotiate(flow.request.host, principal)
-        flow.request.headers[b"Authorization"] = negotiate
+        logger.info("getting Kerberos header for host %s", host)
+        negotiate = await generate_spnego_negotiate(host, principal)
     except SPNEGOExchangeError:
         logger.warn("error while generating SPNEGO header")
         raise
+
+    if cookie_url:
+        logger.info("trying to get cookies from GET %s", cookie_url)
+        headers = {b"Authorization": negotiate}
+        response = await do_request("GET", cookie_url, headers, data=None)
+        cookie = response.headers.get(b"Set-Cookie")
+        flow.request.headers[b"Cookie"] = cookie
+    else:
+        flow.request.headers[b"Authorization"] = negotiate
 
     async with aiohttp.ClientSession() as session:
         # Prevent aiohttp from injecting its supported encoding schemes
@@ -293,6 +331,12 @@ class KerberosAddon:
             help="List of recognized KNOX redirect URLs",
         )
         loader.add_option(
+            name=OPTION_KNOX_COOKIE_URL,
+            typespec=str,
+            default="",
+            help="URL to get the auth cookie in case of KNOX redirect",
+        )
+        loader.add_option(
             name=OPTION_KNOX_CODES,
             typespec=str,
             default="302",
@@ -343,6 +387,7 @@ class KerberosAddon:
             redirect_codes=string_to_list(getattr(ctx.options, OPTION_KNOX_CODES), int),
             knox_urls=string_to_list(getattr(ctx.options, OPTION_KNOX_URLS), urlparse),
             user_agent_override=getattr(ctx.options, OPTION_KNOX_UA_OVERRIDE),
+            cookie_url=getattr(ctx.options, OPTION_KNOX_COOKIE_URL),
         )
 
     async def response(self, flow: HTTPFlow):

@@ -12,6 +12,7 @@ VERSION := $(VERSION)
 
 IMAGE_NAME ?= diogenes1oliveira/kerberos-auth-proxy
 
+-include .env
 export
 
 .PHONY: build

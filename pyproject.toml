@@ -27,6 +27,7 @@ pytest-asyncio = "^0.21"
 flake8 = "^6.0"
 autopep8 = "^2.0"
 flask-kerberos = "^1.0"
+python-dotenv = "^1.0.1"
 
 [build-system]
 requires = ["poetry-core"]
