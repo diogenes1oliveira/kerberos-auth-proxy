@@ -7,6 +7,8 @@ import re
 import sys
 from typing import Iterable, Tuple
 
+from dotenv import load_dotenv
+
 from kerberos_auth_proxy.mitm.addons import kerberos
 
 
@@ -59,6 +61,7 @@ def env_to_options(env: os._Environ) -> Iterable[str]:
 
 
 def main():
+    load_dotenv()
     plugin_path = os.path.abspath(kerberos.__file__)
     env_options = list(env_to_options(os.environ))
 
