@@ -50,11 +50,11 @@ def env_to_options(env: os._Environ) -> Iterable[str]:
             env_name = re.sub(r"_[0-9]+$", "", env_name)
 
         if env_name.startswith("MITM_SET_"):
-            set_name = env_name[len("MITM_SET_") :].lower()
+            set_name = env_name[len("MITM_SET_"):].lower()
             yield "--set"
             yield f"{set_name}={env_value}"
         elif env_name.startswith("MITM_OPT_"):
-            opt_name = env_name[len("MITM_OPT_") :].lower().replace("_", "-")
+            opt_name = env_name[len("MITM_OPT_"):].lower().replace("_", "-")
             yield f"--{opt_name}"
             if env_value != "-":
                 yield env_value

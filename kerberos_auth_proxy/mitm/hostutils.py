@@ -131,7 +131,7 @@ def path_rebase(matcher_path: str, path: str, target_path: str) -> str:
     >>> path_rebase('/v1/', '/v1/some/stuff', '/v2/')
     '/v2/some/stuff'
     """
-    base_path = path[len(matcher_path) :]
+    base_path = path[len(matcher_path):]
     return target_path + base_path
 
 
