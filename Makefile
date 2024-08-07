@@ -30,6 +30,10 @@ push:
 	$(DOCKER) push $(IMAGE_NAME):$(VERSION)
 	$(DOCKER) push $(IMAGE_NAME):latest
 
+.PHONY: publish
+publish:
+	poetry publish
+
 .PHONY: dev/up
 dev/up:
 # Buildar e subir a stack local

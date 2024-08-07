@@ -36,7 +36,6 @@ ENV MITM_TLS_CA_PEM=/etc/security/tls/ca.pem \
     MITM_SET_KERBEROS_CACHE_EXPIRATION=1m
 
 COPY ./docker-entrypoint.sh /docker-entrypoint.sh
-COPY ./docker-entrypoint-init.d/ /docker-entrypoint-init.d/
 
 ENTRYPOINT [ "/docker-entrypoint.sh" ]
 CMD [ "kerberos-auth-proxy" ]
