@@ -61,12 +61,13 @@ def env_to_options(env: os._Environ) -> Iterable[str]:
 
 
 def main():
-    load_dotenv()
+    load_dotenv(override=True, verbose=True)
+
     plugin_path = os.path.abspath(kerberos.__file__)
     env_options = list(env_to_options(os.environ))
 
     args = ["mitmweb", "-s", plugin_path] + env_options + sys.argv[1:]
-    os.execlp("mitmweb", *args)
+    os.execvpe(args[0], args, os.environ)
 
 
 if __name__ == "__main__":
