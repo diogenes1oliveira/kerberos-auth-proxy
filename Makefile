@@ -11,6 +11,7 @@ VERSION ?= $(shell sh .dev/version.sh)
 VERSION := $(VERSION)
 
 IMAGE_NAME ?= diogenes1oliveira/kerberos-auth-proxy
+NAME ?= kerberos-auth-proxy
 
 -include .env
 export
@@ -33,6 +34,11 @@ push:
 .PHONY: publish
 publish:
 	poetry publish
+
+.PHONY: run
+run:
+	$(DOCKER) run --rm -d --name $(NAME) --env-file .env -v $$(pwd):/app -w /app --user $$(id -u):$$(id -g) $(IMAGE_NAME)
+	$(DOCKER) logs -f $(NAME)
 
 .PHONY: dev/up
 dev/up:
