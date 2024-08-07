@@ -9,7 +9,18 @@ import re
 import sys
 from pathlib import Path
 import time
-from typing import Awaitable, Callable, Generator, Generic, Iterable, List, Mapping, Optional, TypeVar, Tuple
+from typing import (
+    Awaitable,
+    Callable,
+    Generator,
+    Generic,
+    Iterable,
+    List,
+    Mapping,
+    Optional,
+    TypeVar,
+    Tuple,
+)
 import warnings
 
 T = TypeVar("T")
@@ -114,11 +125,11 @@ def env_to_options(env: os._Environ) -> Iterable[str]:
             env_name = re.sub(r"_[0-9]+$", "", env_name)
 
         if env_name.startswith("MITM_SET_"):
-            set_name = env_name[len("MITM_SET_"):].lower()
+            set_name = env_name[len("MITM_SET_") :].lower()
             yield "--set"
             yield f"{set_name}={env_value}"
         elif env_name.startswith("MITM_OPT_"):
-            opt_name = env_name[len("MITM_OPT_"):].lower().replace("_", "-")
+            opt_name = env_name[len("MITM_OPT_") :].lower().replace("_", "-")
             yield f"--{opt_name}"
             if env_value != "-":
                 yield env_value
@@ -152,33 +163,35 @@ class ExpiringCache(Generic[T]):
 
 
 def dotenv_from_args(argv: list[str]) -> Optional[Path]:
-    '''
-    Recognizes a --env-file argument passed 
-    '''
+    """
+    Recognizes a --env-file argument passed
+    """
+    print("INFO: checking --env-file arg")
+
     if len(argv) < 2:
         return
 
-    if argv[1] == '--env-file':
+    if argv[1] == "--env-file":
         if len(argv) >= 3:
             env_path = argv[2]
             argv.pop(2)
             argv.pop(1)
         else:
             env_path = None
-    elif argv[1].startswith('--env-file='):
-        env_path = argv[1][len('--env-file='):]
+    elif argv[1].startswith("--env-file="):
+        env_path = argv[1][len("--env-file=") :]
         argv.pop(1)
     else:
         return
 
     if not env_path:
-        print(f'ERROR: no value set for --env-file')
+        raise Exception("no value set for --env-file")
 
     env_path = Path(env_path).absolute()
-    print(f'INFO: loading .env from {env_path}', file=sys.stderr)
+    print(f"INFO: loading .env from {env_path}", file=sys.stderr)
     load_dotenv(dotenv_path=env_path, verbose=True, override=True)
 
-    print(f'INFO: switching to directory {env_path.parent}')
+    print(f"INFO: switching to directory {env_path.parent}")
     os.chdir(env_path.parent)
 
     return env_path
