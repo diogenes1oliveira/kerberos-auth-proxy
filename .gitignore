@@ -171,3 +171,4 @@ cython_debug/
 
 tmp/
 /requirements.txt
+*.tmp.yaml

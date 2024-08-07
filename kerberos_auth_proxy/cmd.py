@@ -2,14 +2,17 @@
 Start up a mitmweb instance using the authentication addons
 """
 
+import importlib.util
 import os
+from pathlib import Path
 import re
 import sys
 from typing import Iterable, Tuple
 
 from dotenv import load_dotenv
 
-from kerberos_auth_proxy.mitm.addons import kerberos
+
+SETUP_MODULE = 'kerberos_auth_proxy.mitm.addons.setup'
 
 
 def _env_index(env_name: str) -> Tuple[str, int]:
@@ -60,10 +63,30 @@ def env_to_options(env: os._Environ) -> Iterable[str]:
                 yield env_value
 
 
+def setup_certificates():
+    confdir = Path(os.environ['MITM_SET_CONFDIR'])
+    crt = Path(os.environ['MITM_TLS_CA_CRT'])
+    key = Path(os.environ['MITM_TLS_CA_KEY'])
+
+    confdir.mkdir(parents=True, exist_ok=True)
+
+    for old in confdir.glob('mitmproxy-ca*'):
+        old.unlink()
+
+    dest = confdir / 'mitmproxy-ca.pem'
+    dest.touch()
+    dest.chmod(0o600)
+
+    with dest.open('w') as bundle:
+        bundle.write(crt.read_text())
+        bundle.write(key.read_text())
+
+
 def main():
     load_dotenv(override=True, verbose=True)
+    setup_certificates()
 
-    plugin_path = os.path.abspath(kerberos.__file__)
+    plugin_path = importlib.util.find_spec(SETUP_MODULE).origin
     env_options = list(env_to_options(os.environ))
 
     args = ["mitmweb", "-s", plugin_path] + env_options + sys.argv[1:]

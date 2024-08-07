@@ -1,0 +1,15 @@
+addons:
+  - type: kerberos_auth_proxy.mitm.addons.spnego:SpnegoAddon
+    kwargs:
+      urls: []
+      # - https://example.com
+
+  - type: kerberos_auth_proxy.mitm.addons.bearer_spnego:BearerSpnegoAddon
+    kwargs:
+      token_url: https://example.com
+      token_method: POST
+      token_headers:
+        content-type: 'text/plain'
+      expiration: 10m
+      urls: []
+      # - https://example.com

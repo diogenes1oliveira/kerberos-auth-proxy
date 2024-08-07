@@ -2,8 +2,10 @@
 Miscellaneous utilities
 """
 
+from collections.abc import MutableMapping
 from contextlib import contextmanager
-from typing import Callable, Generator, List, Mapping, Optional, TypeVar
+import time
+from typing import Awaitable, Callable, Generator, Generic, List, Mapping, Optional, TypeVar, Tuple
 import warnings
 
 T = TypeVar("T")
@@ -68,3 +70,30 @@ def no_warnings(*categories) -> Generator[None, None, None]:
         for category in categories:
             warnings.filterwarnings("ignore", category=category)
         yield
+
+
+class ExpiringCache(Generic[T]):
+    def __init__(
+        self,
+        expiration: float,
+        init: Callable[[str], Awaitable[T]],
+    ):
+        self.expiration = expiration
+        self.init = init
+        self._values: dict[str, T] = {}
+        self._last_updates: dict[str, float] = {}
+
+    async def get(self, key: str) -> Tuple[Optional[T], Optional[float]]:
+        now = time.monotonic()
+        last_update = self._last_updates.get(key)
+        if last_update:
+            age = now - last_update
+        else:
+            age = None
+
+        if not age or age >= self.expiration:
+            self._values[key] = await self.init(key)
+            self._last_updates[key] = time.monotonic()
+            age = None
+
+        return self._values[key], age
