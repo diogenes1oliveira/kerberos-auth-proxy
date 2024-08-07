@@ -41,8 +41,12 @@ def main():
     plugin_path = os.path.realpath(setup.__file__)
     env_options = list(env_to_options(os.environ))
 
-    args = ["mitmweb", "-s", plugin_path] + env_options + sys.argv[1:]
-    print(f"executing {shlex.join(args)}", file=sys.stderr)
+    if len(sys.argv) <= 1 or sys.argv[1] not in ('mitmdump', 'mitmweb', 'mitmproxy'):
+        raise Exception('No valid command')
+
+    args = [sys.argv[1], "-s", plugin_path] + env_options + sys.argv[2:]
+    print(f"$ {shlex.join(args)}", file=sys.stderr)
+
     return os.execvpe(args[0], args, os.environ)
 
 
