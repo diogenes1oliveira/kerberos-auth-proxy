@@ -2,10 +2,14 @@
 Miscellaneous utilities
 """
 
-from collections.abc import MutableMapping
 from contextlib import contextmanager
+from dotenv import load_dotenv
+import os
+import re
+import sys
+from pathlib import Path
 import time
-from typing import Awaitable, Callable, Generator, Generic, List, Mapping, Optional, TypeVar, Tuple
+from typing import Awaitable, Callable, Generator, Generic, Iterable, List, Mapping, Optional, TypeVar, Tuple
 import warnings
 
 T = TypeVar("T")
@@ -72,6 +76,54 @@ def no_warnings(*categories) -> Generator[None, None, None]:
         yield
 
 
+def _env_index(env_name: str) -> Tuple[str, int]:
+    m = re.match(r".*_([0-9]+)$", env_name)
+    if m:
+        index = int(m.group(1))
+        env_name = re.sub(r"_[0-9]+$", "", env_name)
+        return [index, env_name]
+    else:
+        return [0, env_name]
+
+
+def env_to_options(env: os._Environ) -> Iterable[str]:
+    """
+    Maps the environment variables to a set of mitm options
+
+    >>> list(env_to_options({'MITM_SET_KERBEROS_REALM': 'LOCALHOST', 'MITM_SET_KERBEROS_SPNEGO_CODES': '401,407'}))
+    ['--set', 'kerberos_realm=LOCALHOST', '--set', 'kerberos_spnego_codes=401,407']
+
+    >>> list(env_to_options({'MITM_OPT_LISTEN_PORT': '3128'}))
+    ['--listen-port', '3128']
+
+    >>> list(env_to_options({'MITM_OPT_NO_WEB_OPEN_BROWSER': '-'}))
+    ['--no-web-open-browser']
+
+    >>> list(env_to_options({'MITM_OPT_MAP_REMOTE_1': 'v1', 'MITM_OPT_MAP_REMOTE_0': 'v0'}))
+    ['--map-remote', 'v0', '--map-remote', 'v1']
+    """
+
+    # sort env alphabetically
+    sorted_env = dict(sorted(env.items()), key=lambda item: item[0])
+    # sort env by index suffix
+    sorted_env = dict(sorted(env.items()), key=lambda item: _env_index(item[0])[1])
+
+    for env_name, env_value in sorted_env.items():
+        m = re.match(r".*_([0-9]+)$", env_name)
+        if m:
+            env_name = re.sub(r"_[0-9]+$", "", env_name)
+
+        if env_name.startswith("MITM_SET_"):
+            set_name = env_name[len("MITM_SET_"):].lower()
+            yield "--set"
+            yield f"{set_name}={env_value}"
+        elif env_name.startswith("MITM_OPT_"):
+            opt_name = env_name[len("MITM_OPT_"):].lower().replace("_", "-")
+            yield f"--{opt_name}"
+            if env_value != "-":
+                yield env_value
+
+
 class ExpiringCache(Generic[T]):
     def __init__(
         self,
@@ -97,3 +149,36 @@ class ExpiringCache(Generic[T]):
             age = None
 
         return self._values[key], age
+
+
+def dotenv_from_args(argv: list[str]) -> Optional[Path]:
+    '''
+    Recognizes a --env-file argument passed 
+    '''
+    if len(argv) < 2:
+        return
+
+    if argv[1] == '--env-file':
+        if len(argv) >= 3:
+            env_path = argv[2]
+            argv.pop(2)
+            argv.pop(1)
+        else:
+            env_path = None
+    elif argv[1].startswith('--env-file='):
+        env_path = argv[1][len('--env-file='):]
+        argv.pop(1)
+    else:
+        return
+
+    if not env_path:
+        print(f'ERROR: no value set for --env-file')
+
+    env_path = Path(env_path).absolute()
+    print(f'INFO: loading .env from {env_path}', file=sys.stderr)
+    load_dotenv(dotenv_path=env_path, verbose=True, override=True)
+
+    print(f'INFO: switching to directory {env_path.parent}')
+    os.chdir(env_path.parent)
+
+    return env_path

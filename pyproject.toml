@@ -36,3 +36,4 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 kerberos-auth-proxy = "kerberos_auth_proxy.cmd:main"
+kerberos-auth-proxy-prepare = "kerberos_auth_proxy.prepare:main"
