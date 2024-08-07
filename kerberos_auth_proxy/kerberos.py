@@ -72,7 +72,7 @@ class KerberosCache:
                 LOGGER.info(f"now using cached credentials for user {username!r}")
                 return principal
 
-            LOGGER.debug(
+            LOGGER.info(
                 f"getting credencials for {principal} from keytab {keytab_path}"
             )
             process = await asyncio.create_subprocess_exec(

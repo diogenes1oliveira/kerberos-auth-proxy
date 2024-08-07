@@ -21,6 +21,7 @@ build:
 	poetry export -f requirements.txt --without-hashes --without-urls --output ./requirements.txt
 	poetry build
 	$(DOCKER) build $(DOCKER_BUILD_OPTS) \
+		--network=host \
 		--build-arg VERSION \
 		-t $(IMAGE_NAME):$(VERSION) \
 		.
@@ -34,11 +35,6 @@ push:
 .PHONY: publish
 publish:
 	poetry publish
-
-.PHONY: run
-run:
-	$(DOCKER) run --rm -d --name $(NAME) --env-file .env -v $$(pwd):/app -w /app --user $$(id -u):$$(id -g) $(IMAGE_NAME)
-	$(DOCKER) logs -f $(NAME)
 
 .PHONY: dev/up
 dev/up:

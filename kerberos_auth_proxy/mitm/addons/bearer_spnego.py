@@ -1,4 +1,6 @@
 from logging import getLogger
+import os
+import ssl
 from typing import Optional
 from urllib.parse import urlparse, ParseResult
 
@@ -94,7 +96,11 @@ async def generate_bearer_spnego_token(
     headers = {**token_headers, 'Authorization': negotiate}
 
     LOGGER.info('generating Bearer SPNEGO token from %s %s', token_method, token_url)
-    async with aiohttp.ClientSession() as session:
+    cafile = os.environ['MITM_SET_SSL_VERIFY_UPSTREAM_TRUSTED_CA']
+    ssl_context = ssl.create_default_context(cafile=cafile)
+    connector = aiohttp.TCPConnector(ssl=ssl_context)
+
+    async with aiohttp.ClientSession(connector=connector) as session:
         async with session.request(method=token_method, url=token_url, headers=headers) as response:
             if response.ok:
                 return await response.text()
