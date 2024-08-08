@@ -96,8 +96,12 @@ async def generate_bearer_spnego_token(
     headers = {**token_headers, 'Authorization': negotiate}
 
     LOGGER.info('generating Bearer SPNEGO token from %s %s', token_method, token_url)
+
     cafile = os.environ['MITM_SET_SSL_VERIFY_UPSTREAM_TRUSTED_CA']
+    ciphers = os.getenv('SSL_CONTEXT_CIPHERS') or ''
     ssl_context = ssl.create_default_context(cafile=cafile)
+    if ciphers:
+        ssl_context.set_ciphers(ciphers)
     connector = aiohttp.TCPConnector(ssl=ssl_context)
 
     async with aiohttp.ClientSession(connector=connector) as session:
